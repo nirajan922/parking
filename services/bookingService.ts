@@ -36,6 +36,10 @@ export type AdminBookingOverviewItem = Booking & {
   parkingSlot: Pick<ParkingSlot, "id" | "slot_number" | "level" | "status"> | null;
 };
 
+type CreateBookingForUserInput = CreateBookingInput & {
+  userId: string;
+};
+
 function getClient(client?: SmartParkingClient) {
   return client ?? createSupabaseBrowserClient();
 }
@@ -77,6 +81,14 @@ function validateBookingWindow(startTime: string, endTime: string) {
   }
 }
 
+function calculateBookingPrice(startTime: string, endTime: string, hourlyRate: number) {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  const durationInHours = Math.max((end.getTime() - start.getTime()) / 3_600_000, 0);
+
+  return Number((durationInHours * hourlyRate).toFixed(2));
+}
+
 function throwServiceError(message: string, cause: unknown): never {
   throw new Error(message, { cause });
 }
@@ -102,50 +114,72 @@ export async function createParkingBooking(
   input: CreateBookingInput,
   client?: SmartParkingClient,
 ): Promise<Booking> {
+  const activeClient = getClient(client);
+  const user = await getAuthenticatedUser(activeClient);
+
+  return createParkingBookingForUser({ ...input, userId: user.id }, activeClient);
+}
+
+export async function createParkingBookingForUser(
+  input: CreateBookingForUserInput,
+  client?: SmartParkingClient,
+): Promise<Booking> {
+  assertNonEmpty(input.userId, "User id");
   assertNonEmpty(input.parkingAreaId, "Parking area id");
   assertNonEmpty(input.parkingSlotId, "Parking slot id");
   validateBookingWindow(input.startTime, input.endTime);
 
   const activeClient = getClient(client);
-  const user = await getAuthenticatedUser(activeClient);
   const vehiclePlate = normalizeVehiclePlate(input.vehiclePlate);
-  const { data: slot, error: slotError } = await activeClient
+  const { data: reservedSlot, error: reserveError } = await activeClient
     .from("parking_slots")
-    .select("id, parking_area_id, status")
+    .update({
+      status: "reserved",
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", input.parkingSlotId)
+    .eq("parking_area_id", input.parkingAreaId)
+    .eq("status", "available")
+    .select("id, parking_area_id, hourly_rate")
     .maybeSingle();
 
-  if (slotError) {
-    throwServiceError("Unable to verify the parking slot.", slotError);
+  if (reserveError) {
+    throwServiceError("Unable to reserve the parking slot.", reserveError);
   }
 
-  if (!slot) {
-    throw new Error("Parking slot not found.");
-  }
-
-  if (slot.parking_area_id !== input.parkingAreaId) {
-    throw new Error("Parking slot does not belong to the selected parking area.");
-  }
-
-  if (slot.status !== "available") {
+  if (!reservedSlot) {
     throw new Error("Parking slot is not available.");
   }
 
   const { data, error } = await activeClient
     .from("bookings")
     .insert({
-      user_id: user.id,
+      user_id: input.userId,
       parking_area_id: input.parkingAreaId,
       parking_slot_id: input.parkingSlotId,
       vehicle_plate: vehiclePlate,
       start_time: new Date(input.startTime).toISOString(),
       end_time: new Date(input.endTime).toISOString(),
-      status: "pending",
+      status: "confirmed",
+      total_price: calculateBookingPrice(
+        input.startTime,
+        input.endTime,
+        reservedSlot.hourly_rate,
+      ),
     })
     .select("*")
     .single();
 
   if (error) {
+    await activeClient
+      .from("parking_slots")
+      .update({
+        status: "available",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.parkingSlotId)
+      .eq("status", "reserved");
+
     throwServiceError("Unable to create parking booking.", error);
   }
 

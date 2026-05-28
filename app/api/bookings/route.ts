@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getPublicErrorMessage, isUuid, parseJsonBody, parseLimit } from "@/lib/apiValidation";
-import { createSupabaseServerClient } from "@/lib/supabaseServer";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabaseServer";
+import { requireAuthenticatedUser } from "@/services/authService";
 import {
-  createParkingBooking,
+  createParkingBookingForUser,
   listCurrentUserBookings,
   type CreateBookingInput,
 } from "@/services/bookingService";
@@ -66,10 +67,25 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createSupabaseServerClient();
-    const booking = await createParkingBooking(body, supabase);
+    const user = await requireAuthenticatedUser(supabase);
+    const adminClient = createSupabaseAdminClient();
+    const booking = await createParkingBookingForUser(
+      {
+        ...body,
+        userId: user.id,
+      },
+      adminClient,
+    );
 
     return NextResponse.json({ data: booking }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message.includes("Missing SUPABASE_SERVICE_ROLE_KEY")) {
+      return NextResponse.json(
+        { error: "Booking service is not configured." },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json(
       { error: getPublicErrorMessage(error, "Unable to create booking.") },
       { status: getStatusFromError(error) },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { ParkingArea, ParkingSlot } from "@/lib/database.types";
 import { listParkingAreas, listParkingSlots } from "@/services/parkingService";
 
@@ -246,6 +247,13 @@ export function SearchParkingClient() {
                     </span>
                   ) : null}
                 </div>
+
+                <Link
+                  href="/bookings"
+                  className="mt-6 inline-flex w-full justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-xl shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-700"
+                >
+                  Book available slot
+                </Link>
               </article>
             );
           })}
