@@ -5,7 +5,15 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
-export default async function BookingsPage() {
+type BookingsPageProps = {
+  searchParams?: Promise<{
+    areaId?: string;
+    slotId?: string;
+  }>;
+};
+
+export default async function BookingsPage({ searchParams }: BookingsPageProps) {
+  const resolvedSearchParams = await searchParams;
   let supabase;
 
   try {
@@ -75,7 +83,10 @@ export default async function BookingsPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
-        <BookingClient />
+        <BookingClient
+          initialAreaId={resolvedSearchParams?.areaId}
+          initialSlotId={resolvedSearchParams?.slotId}
+        />
       </section>
     </main>
   );

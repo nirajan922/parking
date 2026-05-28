@@ -49,12 +49,17 @@ async function fetchBookingData() {
   };
 }
 
-export function BookingClient() {
+type BookingClientProps = {
+  initialAreaId?: string;
+  initialSlotId?: string;
+};
+
+export function BookingClient({ initialAreaId = "", initialSlotId = "" }: BookingClientProps) {
   const [areas, setAreas] = useState<ParkingArea[]>([]);
   const [slots, setSlots] = useState<ParkingSlot[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [selectedAreaId, setSelectedAreaId] = useState("");
-  const [selectedSlotId, setSelectedSlotId] = useState("");
+  const [selectedAreaId, setSelectedAreaId] = useState(initialAreaId);
+  const [selectedSlotId, setSelectedSlotId] = useState(initialSlotId);
   const [vehiclePlate, setVehiclePlate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
@@ -91,7 +96,13 @@ export function BookingClient() {
         setAreas(data.parkingAreas);
         setSlots(data.parkingSlots);
         setBookings(data.bookings);
-        setSelectedAreaId((currentAreaId) => currentAreaId || data.parkingAreas[0]?.id || "");
+        setSelectedAreaId((currentAreaId) => {
+          if (currentAreaId && data.parkingAreas.some((area) => area.id === currentAreaId)) {
+            return currentAreaId;
+          }
+
+          return data.parkingAreas[0]?.id || "";
+        });
       } catch {
         if (isMounted) {
           setErrorMessage(

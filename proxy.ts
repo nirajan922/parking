@@ -4,9 +4,10 @@ import type { Database } from "@/lib/database.types";
 
 function redirectToLogin(request: NextRequest) {
   const redirectUrl = request.nextUrl.clone();
+  const nextPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
   redirectUrl.pathname = "/login";
   redirectUrl.search = "";
-  redirectUrl.searchParams.set("next", request.nextUrl.pathname);
+  redirectUrl.searchParams.set("next", nextPath);
 
   return NextResponse.redirect(redirectUrl);
 }
