@@ -7,6 +7,7 @@ A professional SaaS-style landing website for an AI-powered smart parking availa
 - Next.js App Router
 - TypeScript
 - Tailwind CSS
+- Supabase Auth and Database
 - ESLint
 
 ## Getting Started
@@ -17,13 +18,27 @@ Install dependencies:
 npm install
 ```
 
+Create a local environment file:
+
+```bash
+cp .env.example .env.local
+```
+
+Then add your Supabase project URL and keys:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
 Run the development server:
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser.
 
 ## Scripts
 
@@ -36,7 +51,16 @@ npm run lint
 ## Project Structure
 
 ```text
-app/                Next.js routes, layout, and global styles
+app/                Next.js pages, API routes, auth callback, layout, and styles
 components/         Reusable sections and UI components
-lib/                Shared navigation and content data
+lib/                Shared data, Supabase clients, and database types
+services/           Parking, booking, prediction, and auth service modules
 ```
+
+## Supabase Integration
+
+- `lib/supabaseClient.ts` creates a browser Supabase client for client components.
+- `lib/supabaseServer.ts` creates request-scoped server clients and a server-only admin client.
+- `app/auth/callback/route.ts` handles Supabase Auth redirects safely.
+- `app/api/parking/zones`, `app/api/bookings`, and `app/api/predictions` expose typed server endpoints backed by the service layer.
+- Service modules accept an optional Supabase client, so server routes/actions can inject the server client while browser flows can use the browser client.
