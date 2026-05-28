@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { signUpWithEmail } from "@/services/authService";
+import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { getDemoSession } from "@/lib/demoMode";
 
 export function RegisterForm() {
@@ -17,7 +18,21 @@ export function RegisterForm() {
   useEffect(() => {
     if (getDemoSession()) {
       router.replace("/dashboard");
+      return;
     }
+
+    async function checkExistingSession() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          router.replace("/dashboard");
+        }
+      } catch {
+        // No session
+      }
+    }
+    checkExistingSession();
   }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -41,8 +56,10 @@ export function RegisterForm() {
         return;
       }
 
-      setSuccessMessage("Account created. Check your email if confirmation is enabled, then sign in.");
-      router.replace("/login?registered=true");
+      setSuccessMessage("Account created successfully! You can now sign in.");
+      setTimeout(() => {
+        router.replace("/login?registered=true");
+      }, 1500);
     } catch (error: unknown) {
       let message = "We could not create your account. Please check your details and try again.";
       if (error instanceof Error) {

@@ -131,6 +131,18 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
         if (demo) {
           setFullName(demo.fullName);
           setEmailAddress(demo.email);
+        } else {
+          try {
+            const { createSupabaseBrowserClient } = await import("@/lib/supabaseClient");
+            const supabase = createSupabaseBrowserClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              setEmailAddress(user.email ?? "");
+              setFullName(user.user_metadata?.full_name?.toString() ?? "");
+            }
+          } catch {
+            // ignore
+          }
         }
       } catch {
         if (isMounted) {
@@ -174,24 +186,25 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
       let bookingResult: Booking | null = null;
 
       if (!isDemo) {
-        try {
-          const response = await fetch("/api/bookings", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              parkingAreaId: selectedAreaId,
-              parkingSlotId: effectiveSelectedSlotId,
-              vehiclePlate,
-              startTime: startIso,
-              endTime: endIso,
-            }),
-          });
-          const payload = (await response.json()) as CreateBookingResponse;
-          if (response.ok && payload.data) {
-            bookingResult = payload.data;
-          }
-        } catch {
-          // fall through to demo fallback
+        const response = await fetch("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            parkingAreaId: selectedAreaId,
+            parkingSlotId: effectiveSelectedSlotId,
+            vehiclePlate,
+            startTime: startIso,
+            endTime: endIso,
+          }),
+        });
+        const payload = (await response.json()) as CreateBookingResponse;
+
+        if (response.ok && payload.data) {
+          bookingResult = payload.data;
+        } else if (payload.error) {
+          setErrorMessage(payload.error);
+          setIsSubmitting(false);
+          return;
         }
       }
 

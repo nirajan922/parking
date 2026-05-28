@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { isSafeRedirectPath } from "@/lib/apiValidation";
 import { signInWithEmail } from "@/services/authService";
+import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import {
   isDemoCredentials,
   setDemoSession,
@@ -36,7 +37,21 @@ export function LoginForm() {
   useEffect(() => {
     if (getDemoSession()) {
       router.replace("/dashboard");
+      return;
     }
+
+    async function checkExistingSession() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          router.replace("/dashboard");
+        }
+      } catch {
+        // No session - stay on login page
+      }
+    }
+    checkExistingSession();
   }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
