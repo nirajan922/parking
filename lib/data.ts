@@ -1,4 +1,5 @@
 export const navigation = [
+  { label: "Search Parking", href: "/parking/search" },
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Dashboard", href: "#dashboard" },
