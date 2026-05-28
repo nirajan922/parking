@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { BookingStatus } from "@/lib/database.types";
+import { adminErrorResponse, requireAdminClient } from "@/lib/adminApi";
 import { parseLimit } from "@/lib/apiValidation";
-import { createSupabaseServerClient } from "@/lib/supabaseServer";
-import { requireAdminUser } from "@/services/authService";
 import { listAdminBookingOverview } from "@/services/bookingService";
 
 const bookingStatuses = new Set<BookingStatus>([
@@ -27,8 +26,7 @@ function parseBookingStatus(value: string | null): BookingStatus | undefined {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    await requireAdminUser(supabase);
+    const supabase = await requireAdminClient();
 
     const bookings = await listAdminBookingOverview({
       client: supabase,
@@ -38,21 +36,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: bookings });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("Authentication is required")) {
-      return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
-    }
-
-    if (error instanceof Error && error.message.includes("Administrator access")) {
-      return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
-    }
-
-    if (error instanceof Error && error.message.includes("Invalid booking status")) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json(
-      { error: "Unable to load admin booking overview." },
-      { status: 500 },
-    );
+    return adminErrorResponse(error, "Unable to load admin booking overview.");
   }
 }

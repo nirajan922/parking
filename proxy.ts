@@ -11,6 +11,15 @@ function redirectToLogin(request: NextRequest) {
   return NextResponse.redirect(redirectUrl);
 }
 
+function redirectToDashboard(request: NextRequest) {
+  const redirectUrl = request.nextUrl.clone();
+  redirectUrl.pathname = "/dashboard";
+  redirectUrl.search = "";
+  redirectUrl.searchParams.set("admin_error", "forbidden");
+
+  return NextResponse.redirect(redirectUrl);
+}
+
 export async function proxy(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -44,9 +53,21 @@ export async function proxy(request: NextRequest) {
     return redirectToLogin(request);
   }
 
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error || profile?.role !== "admin") {
+      return redirectToDashboard(request);
+    }
+  }
+
   return response;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/bookings/:path*"],
+  matcher: ["/dashboard/:path*", "/bookings/:path*", "/admin/:path*"],
 };
