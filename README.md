@@ -1,48 +1,42 @@
-# Parking
+# Smart Parking Availability Predictor
 
-## Project Overview
+A professional SaaS-style landing website for an AI-powered smart parking availability predictor. The site is built with Next.js, TypeScript, and Tailwind CSS, using a responsive blue/navy design system and reusable UI components.
 
-Students will develop a web-based solution for the Parking project using modern
-development frameworks and cloud deployment practices.
+## Tech Stack
 
-## Suggested Technology Stack
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- ESLint
 
-### Frontend
+## Getting Started
 
-- Modern JavaScript framework
+Install dependencies:
 
-### Backend
+```bash
+npm install
+```
 
-- Server-side framework supporting APIs
+Run the development server:
 
-### Database
+```bash
+npm run dev
+```
 
-- Relational database system
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Authentication
+## Scripts
 
-- Secure user authentication
+```bash
+npm run dev
+npm run build
+npm run lint
+```
 
-### Cloud Deployment
+## Project Structure
 
-- Public cloud hosting environment
-
-## Project Timeline
-
-| Week | Activity |
-| --- | --- |
-| 1-2 | Problem research and project planning |
-| 3 | Requirements documentation |
-| 4 | System architecture design |
-| 5 | Database and API design |
-| 6-7 | Backend development |
-| 8-9 | Frontend development |
-| 10 | System integration |
-| 11 | Testing and deployment |
-| 12 | Final demonstration |
-
-## Industry Sponsor Information
-
-- **Industry Project Provider:** Skillup Labs
-- **Program Contact Name:** Nabin Singh
-- **Contact Email:** wil@skilluplabs.com.au
+```text
+app/                Next.js routes, layout, and global styles
+components/         Reusable sections and UI components
+lib/                Shared navigation and content data
+```
