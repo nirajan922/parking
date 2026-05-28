@@ -319,7 +319,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
     }
 
-    if (error instanceof Error && error.message.includes("Missing SUPABASE_SERVICE_ROLE_KEY")) {
+    if (
+      error instanceof Error &&
+      (error.message.includes("Missing SUPABASE_SERVICE_ROLE_KEY") ||
+        error.message.includes("Missing Supabase public environment variables"))
+    ) {
       return NextResponse.json(
         { error: "Prediction service is not configured." },
         { status: 500 },

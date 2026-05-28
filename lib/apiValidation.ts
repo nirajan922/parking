@@ -57,6 +57,14 @@ export function getPublicErrorMessage(error: unknown, fallback: string) {
 }
 
 export function getApiErrorStatus(error: unknown) {
+  if (
+    error instanceof Error &&
+    (error.message.includes("Missing Supabase public environment variables") ||
+      error.message.includes("SUPABASE_SERVICE_ROLE_KEY"))
+  ) {
+    return 500;
+  }
+
   if (error instanceof Error && error.message.includes("Authentication is required")) {
     return 401;
   }
