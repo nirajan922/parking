@@ -207,6 +207,28 @@ export async function listCurrentUserBookings({
   return data ?? [];
 }
 
+export async function getCurrentUserBookingById(
+  bookingId: string,
+  client?: SmartParkingClient,
+): Promise<Booking | null> {
+  assertNonEmpty(bookingId, "Booking id");
+
+  const activeClient = getClient(client);
+  const user = await getAuthenticatedUser(activeClient);
+  const { data, error } = await activeClient
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throwServiceError("Unable to load parking booking.", error);
+  }
+
+  return data;
+}
+
 export async function cancelParkingBooking(
   bookingId: string,
   client?: SmartParkingClient,

@@ -70,3 +70,7 @@ services/           Parking, booking, prediction, and auth service modules
 - API routes include `GET /api/parking/areas`, `GET /api/parking/areas/:id`, `GET|POST /api/bookings`, rule-based `GET|POST /api/predictions`, and admin-only booking/parking management routes under `/api/admin`.
 - `POST /api/predictions` estimates availability from time of day, weekday/weekend, current available slots, and total slots, then stores each request in Supabase.
 - Service modules accept an optional Supabase client, so server routes/actions can inject the server client while browser flows can use the browser client.
+
+## Security
+
+See [SECURITY.md](./SECURITY.md) for authentication checks, role-based access control, Row Level Security policies, environment variable handling, booking ownership rules, input validation, and safe API error handling.

@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isSafeRedirectPath } from "@/lib/apiValidation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 function getSafeRedirectPath(request: NextRequest) {
   const nextPath = request.nextUrl.searchParams.get("next");
 
-  if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {
+  if (!isSafeRedirectPath(nextPath)) {
     return "/";
   }
 

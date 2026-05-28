@@ -41,9 +41,40 @@ export async function parseJsonBody(request: Request) {
 }
 
 export function getPublicErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) {
+  if (
+    error instanceof Error &&
+    (error.message.includes("must be") ||
+      error.message.includes("required") ||
+      error.message.includes("not available") ||
+      error.message.includes("not found") ||
+      error.message.includes("Invalid") ||
+      error.message.includes("after the start"))
+  ) {
     return error.message;
   }
 
   return fallback;
+}
+
+export function getApiErrorStatus(error: unknown) {
+  if (error instanceof Error && error.message.includes("Authentication is required")) {
+    return 401;
+  }
+
+  if (error instanceof Error && error.message.includes("Administrator access")) {
+    return 403;
+  }
+
+  if (
+    error instanceof Error &&
+    (error.message.includes("not found") || error.message.includes("not available"))
+  ) {
+    return 404;
+  }
+
+  return 400;
+}
+
+export function isSafeRedirectPath(value: string | null): value is string {
+  return Boolean(value && value.startsWith("/") && !value.startsWith("//"));
 }

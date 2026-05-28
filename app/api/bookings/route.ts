@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getPublicErrorMessage, isUuid, parseJsonBody, parseLimit } from "@/lib/apiValidation";
+import { getApiErrorStatus, getPublicErrorMessage, isUuid, parseJsonBody, parseLimit } from "@/lib/apiValidation";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabaseServer";
 import { requireAuthenticatedUser } from "@/services/authService";
 import {
@@ -26,14 +26,6 @@ function isBookingRequestBody(value: unknown): value is CreateBookingInput {
   );
 }
 
-function getStatusFromError(error: unknown) {
-  if (error instanceof Error && error.message.includes("Authentication is required")) {
-    return 401;
-  }
-
-  return 400;
-}
-
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -47,7 +39,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: "Unable to load bookings." },
-      { status: getStatusFromError(error) },
+      { status: getApiErrorStatus(error) },
     );
   }
 }
@@ -88,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { error: getPublicErrorMessage(error, "Unable to create booking.") },
-      { status: getStatusFromError(error) },
+      { status: getApiErrorStatus(error) },
     );
   }
 }
