@@ -4,7 +4,7 @@
   "description": "A professional Smart Parking Availability Predictor website built with Next.js, TypeScript, and Tailwind CSS.",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint ."
