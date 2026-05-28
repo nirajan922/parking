@@ -5,8 +5,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 type SmartParkingClient = SupabaseClient<Database>;
 
 export type CreatePredictionInput = {
-  parkingZoneId: string;
-  predictedAvailableSpaces: number;
+  parkingAreaId: string;
+  predictedAvailableSlots: number;
   confidenceScore: number;
   predictionWindowStart: string;
   predictionWindowEnd: string;
@@ -16,7 +16,7 @@ export type CreatePredictionInput = {
 
 type PredictionQueryOptions = {
   client?: SmartParkingClient;
-  parkingZoneId?: string;
+  parkingAreaId?: string;
   limit?: number;
 };
 
@@ -51,9 +51,9 @@ function validatePredictionWindow(startTime: string, endTime: string) {
   }
 }
 
-function validatePredictionNumbers(predictedAvailableSpaces: number, confidenceScore: number) {
-  if (!Number.isInteger(predictedAvailableSpaces) || predictedAvailableSpaces < 0) {
-    throw new Error("Predicted available spaces must be a non-negative integer.");
+function validatePredictionNumbers(predictedAvailableSlots: number, confidenceScore: number) {
+  if (!Number.isInteger(predictedAvailableSlots) || predictedAvailableSlots < 0) {
+    throw new Error("Predicted available slots must be a non-negative integer.");
   }
 
   if (!Number.isFinite(confidenceScore) || confidenceScore < 0 || confidenceScore > 1) {
@@ -67,7 +67,7 @@ function throwServiceError(message: string, cause: unknown): never {
 
 export async function listLatestPredictions({
   client,
-  parkingZoneId,
+  parkingAreaId,
   limit,
 }: PredictionQueryOptions = {}): Promise<Prediction[]> {
   let query = getClient(client)
@@ -76,8 +76,8 @@ export async function listLatestPredictions({
     .order("created_at", { ascending: false })
     .limit(normalizeLimit(limit));
 
-  if (parkingZoneId) {
-    query = query.eq("parking_zone_id", parkingZoneId);
+  if (parkingAreaId) {
+    query = query.eq("parking_area_id", parkingAreaId);
   }
 
   const { data, error } = await query;
@@ -89,16 +89,16 @@ export async function listLatestPredictions({
   return data ?? [];
 }
 
-export async function getLatestPredictionForZone(
-  parkingZoneId: string,
+export async function getLatestPredictionForArea(
+  parkingAreaId: string,
   client?: SmartParkingClient,
 ): Promise<Prediction | null> {
-  assertNonEmpty(parkingZoneId, "Parking zone id");
+  assertNonEmpty(parkingAreaId, "Parking area id");
 
   const { data, error } = await getClient(client)
     .from("predictions")
     .select("*")
-    .eq("parking_zone_id", parkingZoneId)
+    .eq("parking_area_id", parkingAreaId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -114,15 +114,15 @@ export async function createPrediction(
   input: CreatePredictionInput,
   client?: SmartParkingClient,
 ): Promise<Prediction> {
-  assertNonEmpty(input.parkingZoneId, "Parking zone id");
+  assertNonEmpty(input.parkingAreaId, "Parking area id");
   validatePredictionWindow(input.predictionWindowStart, input.predictionWindowEnd);
-  validatePredictionNumbers(input.predictedAvailableSpaces, input.confidenceScore);
+  validatePredictionNumbers(input.predictedAvailableSlots, input.confidenceScore);
 
   const { data, error } = await getClient(client)
     .from("predictions")
     .insert({
-      parking_zone_id: input.parkingZoneId,
-      predicted_available_spaces: input.predictedAvailableSpaces,
+      parking_area_id: input.parkingAreaId,
+      predicted_available_slots: input.predictedAvailableSlots,
       confidence_score: input.confidenceScore,
       prediction_window_start: new Date(input.predictionWindowStart).toISOString(),
       prediction_window_end: new Date(input.predictionWindowEnd).toISOString(),

@@ -14,7 +14,8 @@ function isBookingRequestBody(value: unknown): value is CreateBookingInput {
   const body = value as Record<string, unknown>;
 
   return (
-    typeof body.parkingZoneId === "string" &&
+    typeof body.parkingAreaId === "string" &&
+    typeof body.parkingSlotId === "string" &&
     typeof body.vehiclePlate === "string" &&
     typeof body.startTime === "string" &&
     typeof body.endTime === "string"
@@ -53,7 +54,10 @@ export async function POST(request: NextRequest) {
 
     if (!isBookingRequestBody(body)) {
       return NextResponse.json(
-        { error: "parkingZoneId, vehiclePlate, startTime, and endTime are required." },
+        {
+          error:
+            "parkingAreaId, parkingSlotId, vehiclePlate, startTime, and endTime are required.",
+        },
         { status: 400 },
       );
     }

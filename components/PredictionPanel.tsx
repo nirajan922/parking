@@ -1,4 +1,4 @@
-import { parkingZones } from "@/lib/data";
+import { parkingAreas } from "@/lib/data";
 
 function AvailabilityRing({ percentage }: { percentage: number }) {
   const circumference = 2 * Math.PI * 42;
@@ -71,22 +71,22 @@ export function PredictionPanel() {
         </div>
 
         <div className="space-y-3">
-          {parkingZones.map((zone) => {
-            const percentage = Math.round((zone.available / zone.capacity) * 100);
+          {parkingAreas.map((area) => {
+            const percentage = Math.round((area.available / area.capacity) * 100);
 
             return (
               <div
-                key={zone.name}
+                key={area.name}
                 className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 transition hover:-translate-y-0.5 hover:border-blue-100 hover:bg-white hover:shadow-lg hover:shadow-blue-950/5"
               >
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-semibold text-slate-900">{zone.name}</p>
-                    <p className="mt-1 text-sm text-slate-500">{zone.status}</p>
+                    <p className="font-semibold text-slate-900">{area.name}</p>
+                    <p className="mt-1 text-sm text-slate-500">{area.status}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-slate-950">{zone.available}</p>
-                    <p className="text-xs text-slate-500">{zone.trend} demand</p>
+                    <p className="text-lg font-bold text-slate-950">{area.available}</p>
+                    <p className="text-xs text-slate-500">{area.trend} demand</p>
                   </div>
                 </div>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-blue-100">

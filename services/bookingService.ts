@@ -5,7 +5,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 type SmartParkingClient = SupabaseClient<Database>;
 
 export type CreateBookingInput = {
-  parkingZoneId: string;
+  parkingAreaId: string;
+  parkingSlotId: string;
   vehiclePlate: string;
   startTime: string;
   endTime: string;
@@ -82,7 +83,8 @@ export async function createParkingBooking(
   input: CreateBookingInput,
   client?: SmartParkingClient,
 ): Promise<Booking> {
-  assertNonEmpty(input.parkingZoneId, "Parking zone id");
+  assertNonEmpty(input.parkingAreaId, "Parking area id");
+  assertNonEmpty(input.parkingSlotId, "Parking slot id");
   validateBookingWindow(input.startTime, input.endTime);
 
   const activeClient = getClient(client);
@@ -93,7 +95,8 @@ export async function createParkingBooking(
     .from("bookings")
     .insert({
       user_id: user.id,
-      parking_zone_id: input.parkingZoneId,
+      parking_area_id: input.parkingAreaId,
+      parking_slot_id: input.parkingSlotId,
       vehicle_plate: vehiclePlate,
       start_time: new Date(input.startTime).toISOString(),
       end_time: new Date(input.endTime).toISOString(),

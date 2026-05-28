@@ -59,8 +59,9 @@ services/           Parking, booking, prediction, and auth service modules
 
 ## Supabase Integration
 
+- `supabase/schema.sql` contains the paste-ready SQL schema for Supabase SQL Editor.
 - `lib/supabaseClient.ts` creates a browser Supabase client for client components.
 - `lib/supabaseServer.ts` creates request-scoped server clients and a server-only admin client.
 - `app/auth/callback/route.ts` handles Supabase Auth redirects safely.
-- `app/api/parking/zones`, `app/api/bookings`, and `app/api/predictions` expose typed server endpoints backed by the service layer.
+- `app/api/parking/areas`, `app/api/bookings`, and `app/api/predictions` expose typed server endpoints backed by the service layer.
 - Service modules accept an optional Supabase client, so server routes/actions can inject the server client while browser flows can use the browser client.

@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const limit = request.nextUrl.searchParams.get("limit");
     const predictions = await listLatestPredictions({
       client: supabase,
-      parkingZoneId: request.nextUrl.searchParams.get("parkingZoneId") ?? undefined,
+      parkingAreaId: request.nextUrl.searchParams.get("parkingAreaId") ?? undefined,
       limit: limit ? Number(limit) : undefined,
     });
 

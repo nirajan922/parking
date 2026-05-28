@@ -5,7 +5,7 @@ export const navigation = [
   { label: "Contact", href: "#contact" },
 ];
 
-export const parkingZones = [
+export const parkingAreas = [
   {
     name: "Downtown Core",
     available: 128,

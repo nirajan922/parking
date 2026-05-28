@@ -1,4 +1,4 @@
-import { dashboardMetrics, parkingZones, zoneForecast } from "@/lib/data";
+import { dashboardMetrics, parkingAreas, zoneForecast } from "@/lib/data";
 
 export function DashboardPreview() {
   return (
@@ -65,11 +65,11 @@ export function DashboardPreview() {
               </div>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                {parkingZones.map((zone) => (
-                  <div key={zone.name} className="rounded-2xl bg-white p-4 shadow-sm">
-                    <p className="text-xs font-bold text-slate-500">{zone.name}</p>
-                    <p className="mt-2 text-xl font-black text-slate-950">{zone.available}</p>
-                    <p className="text-xs text-blue-700">{zone.status}</p>
+                {parkingAreas.map((area) => (
+                  <div key={area.name} className="rounded-2xl bg-white p-4 shadow-sm">
+                    <p className="text-xs font-bold text-slate-500">{area.name}</p>
+                    <p className="mt-2 text-xl font-black text-slate-950">{area.available}</p>
+                    <p className="text-xs text-blue-700">{area.status}</p>
                   </div>
                 ))}
               </div>

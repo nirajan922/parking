@@ -1,19 +1,36 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, ParkingZone, ParkingZoneStatus } from "@/lib/database.types";
+import type {
+  Database,
+  ParkingArea,
+  ParkingAreaStatus,
+  ParkingSlot,
+  ParkingSlotStatus,
+} from "@/lib/database.types";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type SmartParkingClient = SupabaseClient<Database>;
 
-type ListParkingZonesOptions = {
+type ListParkingAreasOptions = {
   client?: SmartParkingClient;
   onlyAvailable?: boolean;
   limit?: number;
 };
 
-type ZoneAvailabilityUpdate = {
-  parkingZoneId: string;
-  availableSpaces: number;
-  status?: ParkingZoneStatus;
+type ListParkingSlotsOptions = {
+  client?: SmartParkingClient;
+  parkingAreaId?: string;
+  status?: ParkingSlotStatus;
+  limit?: number;
+};
+
+type AreaStatusUpdate = {
+  parkingAreaId: string;
+  status: ParkingAreaStatus;
+};
+
+type SlotStatusUpdate = {
+  parkingSlotId: string;
+  status: ParkingSlotStatus;
 };
 
 function getClient(client?: SmartParkingClient) {
@@ -38,72 +55,119 @@ function throwServiceError(message: string, cause: unknown): never {
   throw new Error(message, { cause });
 }
 
-export async function listParkingZones({
+export async function listParkingAreas({
   client,
   onlyAvailable = false,
   limit,
-}: ListParkingZonesOptions = {}): Promise<ParkingZone[]> {
+}: ListParkingAreasOptions = {}): Promise<ParkingArea[]> {
   let query = getClient(client)
-    .from("parking_zones")
+    .from("parking_areas")
     .select("*")
     .order("name", { ascending: true })
     .limit(normalizeLimit(limit));
 
   if (onlyAvailable) {
-    query = query.gt("available_spaces", 0).in("status", ["open", "busy"]);
+    query = query.in("status", ["open", "busy"]);
   }
 
   const { data, error } = await query;
 
   if (error) {
-    throwServiceError("Unable to load parking zones.", error);
+    throwServiceError("Unable to load parking areas.", error);
   }
 
   return data ?? [];
 }
 
-export async function getParkingZoneBySlug(
+export async function getParkingAreaBySlug(
   slug: string,
   client?: SmartParkingClient,
-): Promise<ParkingZone | null> {
-  assertNonEmpty(slug, "Parking zone slug");
+): Promise<ParkingArea | null> {
+  assertNonEmpty(slug, "Parking area slug");
 
   const { data, error } = await getClient(client)
-    .from("parking_zones")
+    .from("parking_areas")
     .select("*")
     .eq("slug", slug.trim().toLowerCase())
     .maybeSingle();
 
   if (error) {
-    throwServiceError("Unable to load parking zone.", error);
+    throwServiceError("Unable to load parking area.", error);
   }
 
   return data;
 }
 
-export async function updateParkingZoneAvailability(
-  { parkingZoneId, availableSpaces, status }: ZoneAvailabilityUpdate,
-  client?: SmartParkingClient,
-): Promise<ParkingZone> {
-  assertNonEmpty(parkingZoneId, "Parking zone id");
+export async function listParkingSlots({
+  client,
+  parkingAreaId,
+  status,
+  limit,
+}: ListParkingSlotsOptions = {}): Promise<ParkingSlot[]> {
+  let query = getClient(client)
+    .from("parking_slots")
+    .select("*")
+    .order("slot_number", { ascending: true })
+    .limit(normalizeLimit(limit));
 
-  if (!Number.isInteger(availableSpaces) || availableSpaces < 0) {
-    throw new Error("Available spaces must be a non-negative integer.");
+  if (parkingAreaId) {
+    query = query.eq("parking_area_id", parkingAreaId);
   }
 
+  if (status) {
+    query = query.eq("status", status);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throwServiceError("Unable to load parking slots.", error);
+  }
+
+  return data ?? [];
+}
+
+export async function updateParkingAreaStatus(
+  { parkingAreaId, status }: AreaStatusUpdate,
+  client?: SmartParkingClient,
+): Promise<ParkingArea> {
+  assertNonEmpty(parkingAreaId, "Parking area id");
+
   const { data, error } = await getClient(client)
-    .from("parking_zones")
+    .from("parking_areas")
     .update({
-      available_spaces: availableSpaces,
-      ...(status ? { status } : {}),
+      status,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", parkingZoneId)
+    .eq("id", parkingAreaId)
     .select("*")
     .single();
 
   if (error) {
-    throwServiceError("Unable to update parking availability.", error);
+    throwServiceError("Unable to update parking area status.", error);
+  }
+
+  return data;
+}
+
+export async function updateParkingSlotStatus(
+  { parkingSlotId, status }: SlotStatusUpdate,
+  client?: SmartParkingClient,
+): Promise<ParkingSlot> {
+  assertNonEmpty(parkingSlotId, "Parking slot id");
+
+  const { data, error } = await getClient(client)
+    .from("parking_slots")
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parkingSlotId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throwServiceError("Unable to update parking slot status.", error);
   }
 
   return data;
