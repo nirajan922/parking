@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { ParkingArea, ParkingSlot } from "@/lib/database.types";
+import {
+  SYDNEY_PARKING_AREAS,
+  getSydneyDemoSlots,
+} from "@/lib/demoMode";
 import { listParkingAreas, listParkingSlots } from "@/services/parkingService";
 
 type ParkingAreaWithSlots = ParkingArea & {
@@ -16,9 +20,9 @@ type UserLocation = {
 
 const cityPresets = [
   { label: "Sydney CBD", latitude: -33.8688, longitude: 151.2093 },
-  { label: "Melbourne CBD", latitude: -37.8136, longitude: 144.9631 },
-  { label: "Brisbane City", latitude: -27.4705, longitude: 153.026 },
-  { label: "Perth CBD", latitude: -31.9523, longitude: 115.8613 },
+  { label: "Bondi Beach", latitude: -33.8915, longitude: 151.2767 },
+  { label: "Parramatta", latitude: -33.8151, longitude: 151.0011 },
+  { label: "Chatswood", latitude: -33.7969, longitude: 151.1811 },
 ];
 
 function getAvailableSlots(slots: ParkingSlot[]) {
@@ -49,6 +53,16 @@ function getStatusClasses(status: ParkingArea["status"]) {
   if (status === "busy") return "bg-amber-50 text-amber-700 ring-amber-100";
   if (status === "full") return "bg-red-50 text-red-700 ring-red-100";
   return "bg-slate-100 text-slate-600 ring-slate-200";
+}
+
+function getAvailabilityBadge(available: number, total: number) {
+  if (total === 0) return { label: "Unknown", className: "bg-slate-100 text-slate-600 ring-slate-200" };
+  const ratio = available / total;
+  if (ratio > 0.5)
+    return { label: "High", className: "bg-emerald-50 text-emerald-700 ring-emerald-200" };
+  if (ratio > 0.2)
+    return { label: "Medium", className: "bg-amber-50 text-amber-700 ring-amber-200" };
+  return { label: "Low", className: "bg-red-50 text-red-700 ring-red-200" };
 }
 
 function toRadians(value: number) {
@@ -113,17 +127,35 @@ function createBookingHref(area: ParkingAreaWithSlots) {
   return `/bookings?${params.toString()}`;
 }
 
+function buildAreasWithSlots(
+  parkingAreas: ParkingArea[],
+  parkingSlots: ParkingSlot[],
+): ParkingAreaWithSlots[] {
+  const slotsByArea = new Map<string, ParkingSlot[]>();
+  parkingSlots.forEach((slot) => {
+    const slots = slotsByArea.get(slot.parking_area_id) ?? [];
+    slots.push(slot);
+    slotsByArea.set(slot.parking_area_id, slots);
+  });
+
+  return parkingAreas.map((area) => ({
+    ...area,
+    slots: slotsByArea.get(area.id) ?? [],
+  }));
+}
+
 export function SearchParkingClient() {
   const [areas, setAreas] = useState<ParkingAreaWithSlots[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
-  const [radiusKm, setRadiusKm] = useState("10");
+  const [radiusKm, setRadiusKm] = useState("25");
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -140,24 +172,17 @@ export function SearchParkingClient() {
 
         if (!isMounted) return;
 
-        const slotsByArea = new Map<string, ParkingSlot[]>();
-        parkingSlots.forEach((slot) => {
-          const slots = slotsByArea.get(slot.parking_area_id) ?? [];
-          slots.push(slot);
-          slotsByArea.set(slot.parking_area_id, slots);
-        });
-
-        setAreas(
-          parkingAreas.map((area) => ({
-            ...area,
-            slots: slotsByArea.get(area.id) ?? [],
-          })),
-        );
+        if (parkingAreas.length === 0) {
+          setAreas(buildAreasWithSlots(SYDNEY_PARKING_AREAS, getSydneyDemoSlots()));
+          setUsingFallback(true);
+        } else {
+          setAreas(buildAreasWithSlots(parkingAreas, parkingSlots));
+          setUsingFallback(false);
+        }
       } catch {
         if (isMounted) {
-          setErrorMessage(
-            "Unable to load parking areas. Check your Supabase environment variables and database connection.",
-          );
+          setAreas(buildAreasWithSlots(SYDNEY_PARKING_AREAS, getSydneyDemoSlots()));
+          setUsingFallback(true);
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -269,13 +294,15 @@ export function SearchParkingClient() {
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr] xl:items-end">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.22em] text-blue-600">
-              Live database search
+              {usingFallback ? "Demo parking data" : "Live database search"}
             </p>
             <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
               Search parking by location
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Results are loaded from Supabase `parking_areas` and `parking_slots` tables.
+              {usingFallback
+                ? "Showing realistic Sydney parking locations. Connect Supabase for live data."
+                : "Results loaded from your connected database."}
             </p>
           </div>
 
@@ -296,7 +323,7 @@ export function SearchParkingClient() {
                 type="search"
                 value={locationQuery}
                 onChange={(event) => setLocationQuery(event.target.value)}
-                placeholder="Filter by suburb, street, or address"
+                placeholder="Filter by suburb, city, or location"
                 className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
               />
             </label>
@@ -341,6 +368,12 @@ export function SearchParkingClient() {
             </button>
           ))}
         </div>
+
+        {usingFallback ? (
+          <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <span className="font-bold">Demo mode:</span> Showing sample Sydney parking data.
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -370,9 +403,9 @@ export function SearchParkingClient() {
               </button>
             ))}
             <div className="absolute bottom-5 left-5 right-5 rounded-2xl bg-white/90 p-4 shadow-xl backdrop-blur">
-              <p className="text-sm font-black text-slate-950">Google Maps style placeholder</p>
+              <p className="text-sm font-black text-slate-950">Map placeholder</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Connect Google Maps or Mapbox here when API keys are available. Pins reflect the current nearby results.
+                Connect Google Maps or Mapbox for interactive map. Pins reflect current results.
               </p>
               {selectedArea ? (
                 <div className="mt-3 rounded-xl bg-blue-50 p-3">
@@ -438,10 +471,10 @@ export function SearchParkingClient() {
                 No parking found
               </p>
               <h3 className="mt-3 text-2xl font-black text-slate-950">
-                {areas.length ? "No areas match your search." : "No parking areas in Supabase yet."}
+                No areas match your search.
               </h3>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
-                Add rows to `parking_areas` and `parking_slots` in Supabase, then refresh this page to see real availability data.
+                Try a different search term or broaden your location filter.
               </p>
             </div>
           ) : null}
@@ -455,6 +488,7 @@ export function SearchParkingClient() {
                   ? Math.round((availableSlots / totalSlots) * 100)
                   : 0;
                 const canBook = availableSlots > 0;
+                const badge = getAvailabilityBadge(availableSlots, totalSlots);
 
                 return (
                   <article
@@ -471,13 +505,20 @@ export function SearchParkingClient() {
                           {area.address ?? "Address not provided"}
                         </p>
                       </div>
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-black capitalize ring-1 ${getStatusClasses(
-                          area.status,
-                        )}`}
-                      >
-                        {area.status}
-                      </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black capitalize ring-1 ${getStatusClasses(
+                            area.status,
+                          )}`}
+                        >
+                          {area.status}
+                        </span>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${badge.className}`}
+                        >
+                          {badge.label} availability
+                        </span>
+                      </div>
                     </div>
 
                     <div className="mt-6 grid grid-cols-2 gap-3">
@@ -525,11 +566,6 @@ export function SearchParkingClient() {
                           Accessible
                         </span>
                       ) : null}
-                      {!area.slots.length ? (
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                          Slots not configured
-                        </span>
-                      ) : null}
                     </div>
 
                     <Link
@@ -537,11 +573,11 @@ export function SearchParkingClient() {
                       aria-disabled={!canBook}
                       className={`mt-6 inline-flex w-full justify-center rounded-full px-5 py-3 text-sm font-black shadow-xl transition ${
                         canBook
-                          ? "bg-slate-950 text-white shadow-slate-900/10 hover:-translate-y-0.5 hover:bg-blue-700"
+                          ? "bg-blue-600 text-white shadow-blue-600/25 hover:-translate-y-0.5 hover:bg-blue-700"
                           : "pointer-events-none bg-slate-200 text-slate-500 shadow-none"
                       }`}
                     >
-                      {canBook ? "Book parking slot" : "No slots available"}
+                      {canBook ? "Book Now" : "No slots available"}
                     </Link>
                   </article>
                 );

@@ -1,9 +1,15 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { isSafeRedirectPath } from "@/lib/apiValidation";
 import { signInWithEmail } from "@/services/authService";
+import {
+  isDemoCredentials,
+  setDemoSession,
+  getDemoSession,
+  DEMO_EMAIL,
+} from "@/lib/demoMode";
 
 function getSafeNextPath(nextPath: string | null) {
   if (!isSafeRedirectPath(nextPath)) {
@@ -27,17 +33,40 @@ export function LoginForm() {
   );
   const registered = searchParams.get("registered") === "true";
 
+  useEffect(() => {
+    if (getDemoSession()) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    if (isDemoCredentials(email, password)) {
+      setDemoSession();
+      router.replace(redirectPath);
+      router.refresh();
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       await signInWithEmail({ email, password });
       router.replace(redirectPath);
       router.refresh();
-    } catch {
-      setErrorMessage("We could not sign you in. Check your credentials and try again.");
+    } catch (error: unknown) {
+      let message = "We could not sign you in. Check your credentials and try again.";
+      if (error instanceof Error) {
+        const cause = error.cause;
+        if (cause && typeof cause === "object" && "message" in cause) {
+          message = String((cause as { message: string }).message);
+        } else if (error.message) {
+          message = error.message;
+        }
+      }
+      setErrorMessage(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -91,6 +120,15 @@ export function LoginForm() {
       >
         {isSubmitting ? "Signing in..." : "Sign in to dashboard"}
       </button>
+
+      <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3">
+        <p className="text-xs font-bold text-blue-700">Demo account</p>
+        <p className="mt-1 text-xs text-blue-600">
+          Email: <span className="font-mono font-semibold">{DEMO_EMAIL}</span>
+          <br />
+          Password: <span className="font-mono font-semibold">Demo12345</span>
+        </p>
+      </div>
     </form>
   );
 }

@@ -2,16 +2,6 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
-function redirectToLogin(request: NextRequest) {
-  const redirectUrl = request.nextUrl.clone();
-  const nextPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-  redirectUrl.pathname = "/login";
-  redirectUrl.search = "";
-  redirectUrl.searchParams.set("next", nextPath);
-
-  return NextResponse.redirect(redirectUrl);
-}
-
 function redirectToDashboard(request: NextRequest) {
   const redirectUrl = request.nextUrl.clone();
   redirectUrl.pathname = "/dashboard";
@@ -26,7 +16,7 @@ export async function proxy(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return redirectToLogin(request);
+    return NextResponse.next({ request });
   }
 
   let response = NextResponse.next({ request });
@@ -51,7 +41,7 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return redirectToLogin(request);
+    return response;
   }
 
   if (request.nextUrl.pathname.startsWith("/admin")) {
@@ -70,5 +60,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/bookings/:path*", "/admin/:path*"],
+  matcher: ["/dashboard/:path*", "/bookings/:path*", "/my-bookings/:path*", "/admin/:path*"],
 };

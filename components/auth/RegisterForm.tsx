@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { signUpWithEmail } from "@/services/authService";
+import { getDemoSession } from "@/lib/demoMode";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -12,6 +13,12 @@ export function RegisterForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (getDemoSession()) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,8 +43,17 @@ export function RegisterForm() {
 
       setSuccessMessage("Account created. Check your email if confirmation is enabled, then sign in.");
       router.replace("/login?registered=true");
-    } catch {
-      setErrorMessage("We could not create your account. Please check your details and try again.");
+    } catch (error: unknown) {
+      let message = "We could not create your account. Please check your details and try again.";
+      if (error instanceof Error) {
+        const cause = error.cause;
+        if (cause && typeof cause === "object" && "message" in cause) {
+          message = String((cause as { message: string }).message);
+        } else if (error.message) {
+          message = error.message;
+        }
+      }
+      setErrorMessage(message);
     } finally {
       setIsSubmitting(false);
     }
