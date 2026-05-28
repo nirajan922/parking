@@ -57,7 +57,7 @@ export default function Home() {
           <SectionHeading
             eyebrow="How it works"
             title="From fragmented parking signals to confident availability decisions."
-            description="ParkSense AI organizes every parking data source into a simple operational workflow for planning, real-time response, and driver guidance."
+            description="Smart Parking Availability Predictor organizes every parking data source into a simple operational workflow for planning, real-time response, and driver guidance."
             align="center"
           />
 
@@ -84,7 +84,7 @@ export default function Home() {
           <div>
             <SectionHeading
               eyebrow="Dashboard preview"
-              title="A startup-grade dashboard for live parking operations."
+              title="A startup-grade Smart Parking dashboard for live operations."
               description="Monitor occupancy, predict openings, compare demand curves, and guide drivers from a single SaaS-style command center built for responsive use."
             />
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -123,10 +123,10 @@ export default function Home() {
               Deploy a polished, responsive parking predictor experience that looks credible from the first visit.
             </p>
             <a
-              href="mailto:hello@parksense.ai"
+              href="mailto:hello@smartparking.ai"
               className="mt-8 inline-flex rounded-full bg-white px-6 py-3.5 text-sm font-bold text-blue-700 shadow-lg transition hover:-translate-y-1 hover:bg-blue-50 hover:shadow-xl"
             >
-              Start a conversation
+              Start a Smart Parking conversation
             </a>
           </div>
         </div>

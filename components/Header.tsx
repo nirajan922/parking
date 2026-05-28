@@ -7,30 +7,17 @@ export function Header() {
         <a
           href="#top"
           className="group flex items-center gap-3"
-          aria-label="ParkSense AI home"
+          aria-label="Smart Parking Availability Predictor home"
         >
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-lg shadow-blue-600/30 transition group-hover:-translate-y-0.5">
-            <svg
-              aria-hidden="true"
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M7 20V4h6.2c3.1 0 5.3 2.1 5.3 5s-2.2 5-5.3 5H10v6H7Z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <span className="text-sm font-black tracking-tight">SP</span>
           </span>
           <span>
             <span className="block text-base font-black tracking-tight text-slate-950">
-              ParkSense AI
+              Smart Parking
             </span>
             <span className="block text-xs font-medium text-slate-500">
-              Smart parking predictor
+              Availability Predictor
             </span>
           </span>
         </a>
@@ -52,13 +39,13 @@ export function Header() {
             href="#dashboard"
             className="hidden text-sm font-semibold text-slate-600 transition hover:text-blue-700 sm:inline-flex"
           >
-            View demo
+            View predictor
           </a>
           <a
             href="#contact"
             className="inline-flex rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-xl shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-blue-700/25"
           >
-            Request access
+            Request demo
           </a>
         </div>
       </nav>

@@ -19,14 +19,14 @@ export function Hero() {
             Know where parking will be available before demand peaks.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 lg:mx-0">
-            ParkSense AI turns live occupancy, historic usage, events, and traffic signals into reliable availability predictions for cities, campuses, and parking operators.
+            Smart Parking Availability Predictor turns live occupancy, historical usage, events, and traffic signals into reliable availability predictions for cities, campuses, and parking operators.
           </p>
           <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
             <a
               href="#dashboard"
               className="inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3.5 text-sm font-bold text-white shadow-xl shadow-blue-600/25 transition hover:-translate-y-1 hover:bg-blue-700 hover:shadow-blue-700/30"
             >
-              Explore dashboard
+              Explore Smart Parking dashboard
             </a>
             <a
               href="#how-it-works"

@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ParkSense AI | Smart Parking Availability Predictor",
+  title: "Smart Parking Availability Predictor",
   description:
-    "A modern SaaS-style smart parking availability predictor for cities, campuses, and operators.",
+    "A modern SaaS-style Smart Parking Availability Predictor for cities, campuses, and operators.",
 };
 
 export default function RootLayout({

@@ -8,7 +8,9 @@ export function DashboardPreview() {
         <div className="rounded-[1.5rem] border border-white/10 bg-white">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
             <div>
-              <p className="text-sm font-bold text-slate-950">City Operations Dashboard</p>
+              <p className="text-sm font-bold text-slate-950">
+                Smart Parking Operations Dashboard
+              </p>
               <p className="mt-1 text-xs text-slate-500">Live demand forecast and capacity guidance</p>
             </div>
             <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
