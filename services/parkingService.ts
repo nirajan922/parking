@@ -98,6 +98,25 @@ export async function getParkingAreaBySlug(
   return data;
 }
 
+export async function getParkingAreaById(
+  parkingAreaId: string,
+  client?: SmartParkingClient,
+): Promise<ParkingArea | null> {
+  assertNonEmpty(parkingAreaId, "Parking area id");
+
+  const { data, error } = await getClient(client)
+    .from("parking_areas")
+    .select("*")
+    .eq("id", parkingAreaId)
+    .maybeSingle();
+
+  if (error) {
+    throwServiceError("Unable to load parking area.", error);
+  }
+
+  return data;
+}
+
 export async function listParkingSlots({
   client,
   parkingAreaId,

@@ -64,5 +64,5 @@ services/           Parking, booking, prediction, and auth service modules
 - `lib/supabaseServer.ts` creates request-scoped server clients and a server-only admin client.
 - `app/auth/callback/route.ts` handles Supabase Auth redirects safely.
 - `app/login`, `app/register`, and `app/dashboard` provide Supabase Auth flows and a protected dashboard.
-- `app/api/parking/areas`, `app/api/bookings`, and `app/api/predictions` expose typed server endpoints backed by the service layer.
+- API routes include `GET /api/parking/areas`, `GET /api/parking/areas/:id`, `GET|POST /api/bookings`, `GET|POST /api/predictions`, and admin-only `GET /api/admin/bookings`.
 - Service modules accept an optional Supabase client, so server routes/actions can inject the server client while browser flows can use the browser client.

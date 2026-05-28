@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { parseLimit } from "@/lib/apiValidation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { listParkingAreas } from "@/services/parkingService";
 
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
     const areas = await listParkingAreas({
       client: supabase,
       onlyAvailable: request.nextUrl.searchParams.get("available") === "true",
-      limit: limit ? Number(limit) : undefined,
+      limit: parseLimit(limit, 50),
     });
 
     return NextResponse.json({ data: areas });

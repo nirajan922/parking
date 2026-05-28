@@ -1,5 +1,12 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import type { Booking, Database } from "@/lib/database.types";
+import type {
+  Booking,
+  BookingStatus,
+  Database,
+  ParkingArea,
+  ParkingSlot,
+  Profile,
+} from "@/lib/database.types";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type SmartParkingClient = SupabaseClient<Database>;
@@ -15,6 +22,18 @@ export type CreateBookingInput = {
 type ListBookingsOptions = {
   client?: SmartParkingClient;
   limit?: number;
+};
+
+type ListAdminBookingsOptions = {
+  client?: SmartParkingClient;
+  limit?: number;
+  status?: BookingStatus;
+};
+
+export type AdminBookingOverviewItem = Booking & {
+  profile: Pick<Profile, "id" | "full_name" | "role"> | null;
+  parkingArea: Pick<ParkingArea, "id" | "name" | "slug" | "address"> | null;
+  parkingSlot: Pick<ParkingSlot, "id" | "slot_number" | "level" | "status"> | null;
 };
 
 function getClient(client?: SmartParkingClient) {
@@ -90,6 +109,27 @@ export async function createParkingBooking(
   const activeClient = getClient(client);
   const user = await getAuthenticatedUser(activeClient);
   const vehiclePlate = normalizeVehiclePlate(input.vehiclePlate);
+  const { data: slot, error: slotError } = await activeClient
+    .from("parking_slots")
+    .select("id, parking_area_id, status")
+    .eq("id", input.parkingSlotId)
+    .maybeSingle();
+
+  if (slotError) {
+    throwServiceError("Unable to verify the parking slot.", slotError);
+  }
+
+  if (!slot) {
+    throw new Error("Parking slot not found.");
+  }
+
+  if (slot.parking_area_id !== input.parkingAreaId) {
+    throw new Error("Parking slot does not belong to the selected parking area.");
+  }
+
+  if (slot.status !== "available") {
+    throw new Error("Parking slot is not available.");
+  }
 
   const { data, error } = await activeClient
     .from("bookings")
@@ -158,4 +198,64 @@ export async function cancelParkingBooking(
   }
 
   return data;
+}
+
+export async function listAdminBookingOverview({
+  client,
+  limit,
+  status,
+}: ListAdminBookingsOptions = {}): Promise<AdminBookingOverviewItem[]> {
+  const activeClient = getClient(client);
+  let query = activeClient
+    .from("bookings")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(normalizeLimit(limit));
+
+  if (status) {
+    query = query.eq("status", status);
+  }
+
+  const { data: bookings, error } = await query;
+
+  if (error) {
+    throwServiceError("Unable to load admin booking overview.", error);
+  }
+
+  if (!bookings?.length) {
+    return [];
+  }
+
+  const userIds = [...new Set(bookings.map((booking) => booking.user_id))];
+  const areaIds = [...new Set(bookings.map((booking) => booking.parking_area_id))];
+  const slotIds = [...new Set(bookings.map((booking) => booking.parking_slot_id))];
+
+  const [
+    { data: profiles, error: profilesError },
+    { data: parkingAreas, error: areasError },
+    { data: parkingSlots, error: slotsError },
+  ] = await Promise.all([
+    activeClient.from("profiles").select("id, full_name, role").in("id", userIds),
+    activeClient.from("parking_areas").select("id, name, slug, address").in("id", areaIds),
+    activeClient.from("parking_slots").select("id, slot_number, level, status").in("id", slotIds),
+  ]);
+
+  if (profilesError || areasError || slotsError) {
+    throwServiceError("Unable to load admin booking overview details.", {
+      profilesError,
+      areasError,
+      slotsError,
+    });
+  }
+
+  const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  const areasById = new Map((parkingAreas ?? []).map((area) => [area.id, area]));
+  const slotsById = new Map((parkingSlots ?? []).map((slot) => [slot.id, slot]));
+
+  return bookings.map((booking) => ({
+    ...booking,
+    profile: profilesById.get(booking.user_id) ?? null,
+    parkingArea: areasById.get(booking.parking_area_id) ?? null,
+    parkingSlot: slotsById.get(booking.parking_slot_id) ?? null,
+  }));
 }

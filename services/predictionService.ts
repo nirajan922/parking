@@ -12,6 +12,7 @@ export type CreatePredictionInput = {
   predictionWindowEnd: string;
   modelVersion?: string;
   metadata?: Database["public"]["Tables"]["predictions"]["Insert"]["metadata"];
+  createdBy?: string | null;
 };
 
 type PredictionQueryOptions = {
@@ -128,6 +129,7 @@ export async function createPrediction(
       prediction_window_end: new Date(input.predictionWindowEnd).toISOString(),
       model_version: input.modelVersion ?? null,
       metadata: input.metadata ?? null,
+      created_by: input.createdBy ?? null,
     })
     .select("*")
     .single();

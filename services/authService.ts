@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
+import type { Database, Profile } from "@/lib/database.types";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type SmartParkingClient = SupabaseClient<Database>;
@@ -97,6 +97,55 @@ export async function getCurrentUser(client?: SmartParkingClient): Promise<User 
 
   if (error) {
     throwServiceError("Unable to load the current user.", error);
+  }
+
+  return user;
+}
+
+export async function requireAuthenticatedUser(client?: SmartParkingClient): Promise<User> {
+  const user = await getCurrentUser(client);
+
+  if (!user) {
+    throw new Error("Authentication is required.");
+  }
+
+  return user;
+}
+
+export async function getCurrentUserProfile(
+  client?: SmartParkingClient,
+): Promise<Profile | null> {
+  const activeClient = getClient(client);
+  const user = await requireAuthenticatedUser(activeClient);
+
+  const { data, error } = await activeClient
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throwServiceError("Unable to load the current user profile.", error);
+  }
+
+  return data;
+}
+
+export async function requireAdminUser(client?: SmartParkingClient): Promise<User> {
+  const activeClient = getClient(client);
+  const user = await requireAuthenticatedUser(activeClient);
+  const { data, error } = await activeClient
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throwServiceError("Unable to verify administrator permissions.", error);
+  }
+
+  if (data?.role !== "admin") {
+    throw new Error("Administrator access is required.");
   }
 
   return user;

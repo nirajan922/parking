@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getPublicErrorMessage, isUuid, parseJsonBody, parseLimit } from "@/lib/apiValidation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import {
   createParkingBooking,
@@ -15,7 +16,9 @@ function isBookingRequestBody(value: unknown): value is CreateBookingInput {
 
   return (
     typeof body.parkingAreaId === "string" &&
+    isUuid(body.parkingAreaId) &&
     typeof body.parkingSlotId === "string" &&
+    isUuid(body.parkingSlotId) &&
     typeof body.vehiclePlate === "string" &&
     typeof body.startTime === "string" &&
     typeof body.endTime === "string"
@@ -36,7 +39,7 @@ export async function GET(request: NextRequest) {
     const limit = request.nextUrl.searchParams.get("limit");
     const bookings = await listCurrentUserBookings({
       client: supabase,
-      limit: limit ? Number(limit) : undefined,
+      limit: parseLimit(limit),
     });
 
     return NextResponse.json({ data: bookings });
@@ -50,7 +53,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: unknown = await request.json();
+    const body = await parseJsonBody(request);
 
     if (!isBookingRequestBody(body)) {
       return NextResponse.json(
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: booking }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
-      { error: "Unable to create booking." },
+      { error: getPublicErrorMessage(error, "Unable to create booking.") },
       { status: getStatusFromError(error) },
     );
   }
