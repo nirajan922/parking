@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { getDemoSession } from "@/lib/demoMode";
-import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 type AuthGateProps = {
   children: ReactNode;
@@ -18,6 +18,12 @@ export function AuthGate({ children }: AuthGateProps) {
     async function checkAuth() {
       if (getDemoSession()) {
         setIsAuthed(true);
+        setIsChecking(false);
+        return;
+      }
+
+      if (!isSupabaseConfigured()) {
+        router.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         setIsChecking(false);
         return;
       }

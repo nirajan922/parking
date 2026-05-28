@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { signUpWithEmail } from "@/services/authService";
-import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { getDemoSession } from "@/lib/demoMode";
 
 export function RegisterForm() {
@@ -22,6 +22,7 @@ export function RegisterForm() {
     }
 
     async function checkExistingSession() {
+      if (!isSupabaseConfigured()) return;
       try {
         const supabase = createSupabaseBrowserClient();
         const { data: { user } } = await supabase.auth.getUser();

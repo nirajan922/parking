@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogoutButton } from "@/components/dashboard/LogoutButton";
 import { getDemoSession, type DemoUser } from "@/lib/demoMode";
-import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 type UserInfo = {
   email: string;
@@ -29,6 +29,12 @@ export function DashboardClient() {
           id: demoUser.id,
           isDemo: true,
         });
+        setIsLoading(false);
+        return;
+      }
+
+      if (!isSupabaseConfigured()) {
+        router.replace("/login?next=/dashboard");
         setIsLoading(false);
         return;
       }

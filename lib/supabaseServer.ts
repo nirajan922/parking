@@ -3,25 +3,38 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/database.types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+function getPublicSupabaseEnv() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-function requirePublicSupabaseEnv() {
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Missing Supabase public environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-    );
+    return null;
   }
 
   return { supabaseUrl, supabaseAnonKey };
 }
 
+function requirePublicSupabaseEnv() {
+  const env = getPublicSupabaseEnv();
+
+  if (!env) {
+    throw new Error(
+      "Supabase environment variables are not configured. " +
+      "Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    );
+  }
+
+  return env;
+}
+
 function requireServerSupabaseEnv() {
   const env = requirePublicSupabaseEnv();
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseServiceRoleKey) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY for privileged server database access.");
+    throw new Error(
+      "Missing SUPABASE_SERVICE_ROLE_KEY for privileged server database access.",
+    );
   }
 
   return { ...env, supabaseServiceRoleKey };

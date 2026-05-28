@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { isSafeRedirectPath } from "@/lib/apiValidation";
 import { signInWithEmail } from "@/services/authService";
-import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabaseClient";
 import {
   isDemoCredentials,
   setDemoSession,
@@ -41,6 +41,7 @@ export function LoginForm() {
     }
 
     async function checkExistingSession() {
+      if (!isSupabaseConfigured()) return;
       try {
         const supabase = createSupabaseBrowserClient();
         const { data: { user } } = await supabase.auth.getUser();
