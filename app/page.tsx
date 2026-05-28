@@ -1,32 +1,49 @@
+import { DashboardPreview } from "@/components/DashboardPreview";
 import { FeatureCard } from "@/components/FeatureCard";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
-import { InsightCard } from "@/components/InsightCard";
 import { SectionHeading } from "@/components/SectionHeading";
-import { features, timeline } from "@/lib/data";
+import { StatCard } from "@/components/StatCard";
+import { features, howItWorks, stats } from "@/lib/data";
 
 export default function Home() {
   return (
-    <main>
+    <main className="overflow-hidden">
       <Header />
       <Hero />
 
-      <section id="platform" className="px-6 py-20 lg:px-8">
+      <section className="px-6 py-12 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+            {stats.map((stat) => (
+              <StatCard
+                key={stat.label}
+                value={stat.value}
+                label={stat.label}
+                description={stat.description}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="features" className="px-6 py-20 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <SectionHeading
-            eyebrow="Platform"
-            title="A clean command center for smarter parking decisions."
-            description="Use predictive demand signals to connect drivers with available spaces while giving operators the visibility they need to manage capacity."
+            eyebrow="Features"
+            title="Everything teams need to predict, guide, and optimize parking."
+            description="A professional product experience that combines forecasting, driver guidance, operations dashboards, and demand intelligence in one responsive interface."
             align="center"
           />
 
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
+          <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {features.map((feature, index) => (
               <FeatureCard
                 key={feature.title}
                 title={feature.title}
                 description={feature.description}
+                icon={feature.icon}
                 index={index}
               />
             ))}
@@ -34,108 +51,84 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="predictions" className="px-6 py-20 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-10 rounded-[2.5rem] bg-slate-950 p-8 shadow-2xl shadow-blue-950/20 sm:p-10 lg:grid-cols-[0.95fr_1.05fr] lg:p-14">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-blue-300">
-              Prediction engine
-            </p>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Turn fragmented parking data into clear availability forecasts.
-            </h2>
-            <p className="mt-5 text-base leading-7 text-blue-100">
-              The predictor blends live occupancy, meter activity, nearby events, commuter peaks, and seasonal patterns into location-level recommendations that stay useful as demand changes.
-            </p>
-            <div className="mt-8 space-y-4">
-              {timeline.map((item, index) => (
-                <div key={item} className="flex gap-4">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">
-                    {index + 1}
-                  </span>
-                  <p className="pt-1 text-sm leading-6 text-blue-50">{item}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            <InsightCard
-              title="Forecast window"
-              value="0-6h"
-              description="Short-term availability views for journey planning and dynamic guidance."
-            />
-            <InsightCard
-              title="Demand signals"
-              value="18+"
-              description="From weather and events to local occupancy history and arrival rates."
-            />
-            <InsightCard
-              title="Operator mode"
-              value="Live"
-              description="Monitor neighborhoods, lots, zones, and curbside inventory in one view."
-            />
-            <InsightCard
-              title="Driver impact"
-              value="-12m"
-              description="Reduce average search loops and improve arrival confidence."
-            />
-          </div>
-        </div>
-      </section>
-
-      <section id="insights" className="px-6 py-20 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+      <section id="how-it-works" className="relative px-6 py-20 lg:px-8">
+        <div className="absolute inset-x-0 top-1/2 -z-10 h-64 bg-blue-50/70" />
+        <div className="mx-auto max-w-7xl">
           <SectionHeading
-            eyebrow="Insights"
-            title="Designed for city-scale operations and everyday drivers."
-            description="A responsive SaaS-style interface keeps critical information legible on executive dashboards, tablets in the field, and mobile devices."
+            eyebrow="How it works"
+            title="From fragmented parking signals to confident availability decisions."
+            description="ParkSense AI organizes every parking data source into a simple operational workflow for planning, real-time response, and driver guidance."
+            align="center"
           />
 
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl shadow-blue-950/10">
-            <div className="grid gap-4 sm:grid-cols-3">
-              {["Sensor feeds", "Historic demand", "Route context"].map((label) => (
-                <div key={label} className="rounded-2xl bg-blue-50 p-4 text-center">
-                  <p className="text-sm font-semibold text-blue-700">{label}</p>
+          <div className="relative mt-14 grid gap-6 lg:grid-cols-3">
+            <div className="absolute left-0 right-0 top-10 hidden h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent lg:block" />
+            {howItWorks.map((step, index) => (
+              <div
+                key={step.title}
+                className="relative rounded-[1.75rem] border border-slate-200 bg-white p-7 shadow-xl shadow-blue-950/5 transition duration-300 hover:-translate-y-2 hover:border-blue-200 hover:shadow-2xl hover:shadow-blue-950/10"
+              >
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-lg font-black text-white shadow-lg shadow-slate-950/15">
+                  {index + 1}
                 </div>
-              ))}
-            </div>
-            <div className="mt-6 rounded-3xl bg-gradient-to-br from-blue-600 to-slate-950 p-6 text-white">
-              <p className="text-sm font-semibold text-blue-100">Next best action</p>
-              <h3 className="mt-3 text-2xl font-bold">Redirect drivers to Riverside Station.</h3>
-              <p className="mt-3 text-sm leading-6 text-blue-100">
-                Availability is projected to stay above 60% for the next 45 minutes while downtown demand rises.
-              </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                {[
-                  ["Confidence", "94%"],
-                  ["Walk time", "4 min"],
-                  ["CO2 saved", "18 kg"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-2xl bg-white/10 p-4">
-                    <p className="text-xs text-blue-100">{label}</p>
-                    <p className="mt-1 text-xl font-bold">{value}</p>
-                  </div>
-                ))}
+                <h3 className="mt-7 text-xl font-bold text-slate-950">{step.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-600">{step.description}</p>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="px-6 pb-20 lg:px-8">
-        <div className="mx-auto max-w-7xl rounded-[2rem] border border-blue-100 bg-blue-600 p-8 text-center text-white shadow-2xl shadow-blue-600/20 sm:p-12">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-blue-100">
-            Ready for deployment
-          </p>
-          <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">
-            Launch a smarter parking experience with predictive availability from day one.
-          </h2>
-          <a
-            href="mailto:hello@parksense.ai"
-            className="mt-8 inline-flex rounded-full bg-white px-6 py-3 text-sm font-semibold text-blue-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-blue-50"
-          >
-            Start a conversation
-          </a>
+      <section id="dashboard" className="px-6 py-20 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+          <div>
+            <SectionHeading
+              eyebrow="Dashboard preview"
+              title="A startup-grade dashboard for live parking operations."
+              description="Monitor occupancy, predict openings, compare demand curves, and guide drivers from a single SaaS-style command center built for responsive use."
+            />
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              {[
+                ["Forecast window", "0-6h"],
+                ["Demand signals", "18+"],
+                ["Operator mode", "Live"],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-950/5"
+                >
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                    {label}
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-blue-700">{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <DashboardPreview />
+        </div>
+      </section>
+
+      <section className="px-6 py-20 lg:px-8">
+        <div className="mx-auto max-w-7xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-blue-600 via-blue-700 to-slate-950 p-8 text-center text-white shadow-2xl shadow-blue-600/20 sm:p-12">
+          <div className="mx-auto max-w-3xl">
+            <p className="text-sm font-bold uppercase tracking-[0.24em] text-blue-100">
+              Ready for launch
+            </p>
+            <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
+              Give every driver and operator a clearer view of parking availability.
+            </h2>
+            <p className="mt-5 text-base leading-7 text-blue-100">
+              Deploy a polished, responsive parking predictor experience that looks credible from the first visit.
+            </p>
+            <a
+              href="mailto:hello@parksense.ai"
+              className="mt-8 inline-flex rounded-full bg-white px-6 py-3.5 text-sm font-bold text-blue-700 shadow-lg transition hover:-translate-y-1 hover:bg-blue-50 hover:shadow-xl"
+            >
+              Start a conversation
+            </a>
+          </div>
         </div>
       </section>
 

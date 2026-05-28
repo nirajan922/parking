@@ -41,13 +41,20 @@ export function PredictionPanel() {
   return (
     <div className="relative mx-auto w-full max-w-xl">
       <div className="absolute -inset-6 rounded-[2.5rem] bg-blue-500/20 blur-3xl" />
-      <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 p-6 shadow-2xl shadow-blue-950/15 backdrop-blur">
+      <div className="absolute -right-4 top-8 z-10 hidden rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-xl shadow-blue-950/10 backdrop-blur sm:block">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+          Confidence
+        </p>
+        <p className="mt-1 text-2xl font-black text-blue-700">94%</p>
+      </div>
+      <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 p-6 shadow-2xl shadow-blue-950/15 backdrop-blur transition hover:-translate-y-1 hover:shadow-blue-950/20">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-slate-900" />
         <div className="flex items-center justify-between border-b border-slate-100 pb-5">
           <div>
             <p className="text-sm font-semibold text-blue-600">Live prediction</p>
             <h3 className="mt-1 text-xl font-bold text-slate-950">8:30 AM city outlook</h3>
           </div>
-          <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+          <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
             Model online
           </div>
         </div>
@@ -70,7 +77,7 @@ export function PredictionPanel() {
             return (
               <div
                 key={zone.name}
-                className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4"
+                className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 transition hover:-translate-y-0.5 hover:border-blue-100 hover:bg-white hover:shadow-lg hover:shadow-blue-950/5"
               >
                 <div className="flex items-center justify-between gap-4">
                   <div>
@@ -79,7 +86,7 @@ export function PredictionPanel() {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-slate-950">{zone.available}</p>
-                    <p className="text-xs text-slate-500">spaces</p>
+                    <p className="text-xs text-slate-500">{zone.trend} demand</p>
                   </div>
                 </div>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-blue-100">
