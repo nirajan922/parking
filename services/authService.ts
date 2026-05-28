@@ -9,6 +9,11 @@ export type EmailPasswordCredentials = {
   password: string;
 };
 
+export type SignUpResult = {
+  user: User | null;
+  session: Session | null;
+};
+
 function getClient(client?: SmartParkingClient) {
   return client ?? createSupabaseBrowserClient();
 }
@@ -58,7 +63,7 @@ export async function signInWithEmail(
 export async function signUpWithEmail(
   { email, password }: EmailPasswordCredentials,
   client?: SmartParkingClient,
-): Promise<User | null> {
+): Promise<SignUpResult> {
   validatePassword(password);
 
   const { data, error } = await getClient(client).auth.signUp({
@@ -70,7 +75,10 @@ export async function signUpWithEmail(
     throwServiceError("Unable to create an account with the provided credentials.", error);
   }
 
-  return data.user;
+  return {
+    user: data.user,
+    session: data.session,
+  };
 }
 
 export async function signOut(client?: SmartParkingClient): Promise<void> {

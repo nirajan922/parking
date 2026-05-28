@@ -36,16 +36,16 @@ export function Header() {
 
         <div className="flex items-center gap-3">
           <a
-            href="#dashboard"
+            href="/login"
             className="hidden text-sm font-semibold text-slate-600 transition hover:text-blue-700 sm:inline-flex"
           >
-            View predictor
+            Sign in
           </a>
           <a
-            href="#contact"
+            href="/dashboard"
             className="inline-flex rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-xl shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-blue-700/25"
           >
-            Request demo
+            Dashboard
           </a>
         </div>
       </nav>
