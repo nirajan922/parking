@@ -66,5 +66,6 @@ services/           Parking, booking, prediction, and auth service modules
 - `app/login`, `app/register`, and `app/dashboard` provide Supabase Auth flows and a protected dashboard.
 - `app/parking/search` provides a real Supabase-powered parking search experience with loading, empty, and error states.
 - `app/bookings` lets authenticated users reserve live available slots and view only their own bookings.
-- API routes include `GET /api/parking/areas`, `GET /api/parking/areas/:id`, `GET|POST /api/bookings`, `GET|POST /api/predictions`, and admin-only `GET /api/admin/bookings`.
+- API routes include `GET /api/parking/areas`, `GET /api/parking/areas/:id`, `GET|POST /api/bookings`, rule-based `GET|POST /api/predictions`, and admin-only `GET /api/admin/bookings`.
+- `POST /api/predictions` estimates availability from time of day, weekday/weekend, current available slots, and total slots, then stores each request in Supabase.
 - Service modules accept an optional Supabase client, so server routes/actions can inject the server client while browser flows can use the browser client.
