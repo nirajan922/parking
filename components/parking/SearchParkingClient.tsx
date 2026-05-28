@@ -14,6 +14,13 @@ type UserLocation = {
   longitude: number;
 };
 
+const cityPresets = [
+  { label: "Sydney CBD", latitude: -33.8688, longitude: 151.2093 },
+  { label: "Melbourne CBD", latitude: -37.8136, longitude: 144.9631 },
+  { label: "Brisbane City", latitude: -27.4705, longitude: 153.026 },
+  { label: "Perth CBD", latitude: -31.9523, longitude: 115.8613 },
+];
+
 function getAvailableSlots(slots: ParkingSlot[]) {
   return slots.filter((slot) => slot.status === "available");
 }
@@ -71,6 +78,18 @@ function getDistanceKm(area: ParkingArea, userLocation: UserLocation | null) {
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
+function getSimulatedDistanceKm(area: ParkingArea, index: number) {
+  const seed = Array.from(area.id).reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  return Number((0.4 + ((seed + index * 7) % 45) / 5).toFixed(1));
+}
+
+function getMarkerPosition(index: number) {
+  return {
+    left: `${18 + (index * 17) % 62}%`,
+    top: `${20 + (index * 23) % 58}%`,
+  };
+}
+
 function formatDistance(distanceKm: number | null) {
   if (distanceKm === null) {
     return "Distance unavailable";
@@ -100,6 +119,7 @@ export function SearchParkingClient() {
   const [locationQuery, setLocationQuery] = useState("");
   const [radiusKm, setRadiusKm] = useState("10");
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -153,11 +173,18 @@ export function SearchParkingClient() {
 
   const areasWithDistance = useMemo(
     () =>
-      areas.map((area) => ({
-        ...area,
-        distanceKm: getDistanceKm(area, userLocation),
-      })),
-    [areas, userLocation],
+      areas.map((area, index) => {
+        const realDistance = getDistanceKm(area, userLocation);
+        const shouldSimulateNearby = Boolean(userLocation || locationQuery.trim());
+
+        return {
+          ...area,
+          distanceKm:
+            realDistance ?? (shouldSimulateNearby ? getSimulatedDistanceKm(area, index) : null),
+          markerPosition: getMarkerPosition(index),
+        };
+      }),
+    [areas, locationQuery, userLocation],
   );
 
   const filteredAreas = useMemo(() => {
@@ -195,6 +222,16 @@ export function SearchParkingClient() {
   }, [areasWithDistance, locationQuery, radiusKm, searchQuery, userLocation]);
 
   const nearbyAreas = filteredAreas.slice(0, 5);
+  const selectedArea = filteredAreas.find((area) => area.id === selectedAreaId) ?? nearbyAreas[0];
+
+  function handleCityPreset(city: (typeof cityPresets)[number]) {
+    setUserLocation({
+      latitude: city.latitude,
+      longitude: city.longitude,
+    });
+    setLocationQuery(city.label);
+    setLocationMessage(`Showing nearby parking around ${city.label}.`);
+  }
 
   function handleUseCurrentLocation() {
     setLocationMessage(null);
@@ -291,6 +328,19 @@ export function SearchParkingClient() {
           </label>
           {locationMessage ? <p className="text-sm font-semibold text-slate-500">{locationMessage}</p> : null}
         </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {cityPresets.map((city) => (
+            <button
+              key={city.label}
+              type="button"
+              onClick={() => handleCityPreset(city)}
+              className="rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-black text-blue-700 transition hover:-translate-y-0.5 hover:bg-blue-100"
+            >
+              {city.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -306,24 +356,60 @@ export function SearchParkingClient() {
             <div className="absolute left-8 right-8 top-1/2 h-3 -translate-y-1/2 rounded-full bg-white shadow-lg" />
             <div className="absolute bottom-12 left-1/2 top-10 w-3 -translate-x-1/2 rounded-full bg-white shadow-lg" />
             {nearbyAreas.map((area, index) => (
-              <div
+              <button
+                type="button"
                 key={area.id}
-                className="absolute rounded-full bg-blue-600 px-3 py-2 text-xs font-black text-white shadow-xl shadow-blue-950/20 ring-4 ring-white"
-                style={{
-                  left: `${18 + (index * 17) % 62}%`,
-                  top: `${20 + (index * 23) % 58}%`,
-                }}
+                onClick={() => setSelectedAreaId(area.id)}
+                className={`absolute rounded-full px-3 py-2 text-xs font-black text-white shadow-xl shadow-blue-950/20 ring-4 ring-white transition hover:-translate-y-1 ${
+                  selectedArea?.id === area.id ? "bg-slate-950" : "bg-blue-600"
+                }`}
+                style={area.markerPosition}
               >
                 {index + 1}
                 <span className="sr-only">{area.name}</span>
-              </div>
+              </button>
             ))}
             <div className="absolute bottom-5 left-5 right-5 rounded-2xl bg-white/90 p-4 shadow-xl backdrop-blur">
               <p className="text-sm font-black text-slate-950">Google Maps style placeholder</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
                 Connect Google Maps or Mapbox here when API keys are available. Pins reflect the current nearby results.
               </p>
+              {selectedArea ? (
+                <div className="mt-3 rounded-xl bg-blue-50 p-3">
+                  <p className="text-sm font-black text-slate-950">{selectedArea.name}</p>
+                  <p className="mt-1 text-xs font-semibold text-blue-700">
+                    {formatDistance(selectedArea.distanceKm)} -{" "}
+                    {getAvailableSlotCount(selectedArea.slots)} slots available
+                  </p>
+                </div>
+              ) : null}
             </div>
+          </div>
+          <div className="space-y-3 p-5">
+            {nearbyAreas.map((area, index) => (
+              <button
+                key={area.id}
+                type="button"
+                onClick={() => setSelectedAreaId(area.id)}
+                className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg ${
+                  selectedArea?.id === area.id
+                    ? "border-blue-200 bg-blue-50"
+                    : "border-slate-200 bg-white"
+                }`}
+              >
+                <span>
+                  <span className="block text-sm font-black text-slate-950">
+                    {index + 1}. {area.name}
+                  </span>
+                  <span className="mt-1 block text-xs font-semibold text-slate-500">
+                    {formatDistance(area.distanceKm)}
+                  </span>
+                </span>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
+                  {getAvailableSlotCount(area.slots)} slots
+                </span>
+              </button>
+            ))}
           </div>
         </aside>
 
@@ -373,7 +459,10 @@ export function SearchParkingClient() {
                 return (
                   <article
                     key={area.id}
-                    className="group rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-2 hover:border-blue-200 hover:shadow-2xl hover:shadow-blue-950/10"
+                    onMouseEnter={() => setSelectedAreaId(area.id)}
+                    className={`group rounded-[1.75rem] border bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-2 hover:border-blue-200 hover:shadow-2xl hover:shadow-blue-950/10 ${
+                      selectedArea?.id === area.id ? "border-blue-300 ring-4 ring-blue-100" : "border-slate-200"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
