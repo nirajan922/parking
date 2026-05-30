@@ -62,12 +62,18 @@ export function RegisterForm() {
         router.replace("/login?registered=true");
       }, 1500);
     } catch (error: unknown) {
-      let message = "We could not create your account. Please check your details and try again.";
+      const fallback = "We could not create your account. Please check your details and try again.";
+      let message = fallback;
       if (error instanceof Error) {
         const cause = error.cause;
-        if (cause && typeof cause === "object" && "message" in cause) {
-          message = String((cause as { message: string }).message);
-        } else if (error.message) {
+        const causeMsg = cause && typeof cause === "object" && "message" in cause
+          ? String((cause as { message: string }).message)
+          : "";
+        if (causeMsg && !causeMsg.includes("Supabase is not connected")) {
+          message = causeMsg;
+        } else if (error.message.includes("Supabase is not connected")) {
+          message = "Supabase is not connected. Please verify your deployment environment variables and redeploy.";
+        } else if (error.message && error.message !== fallback) {
           message = error.message;
         }
       }

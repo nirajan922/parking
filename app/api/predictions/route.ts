@@ -321,8 +321,8 @@ export async function POST(request: NextRequest) {
 
     if (
       error instanceof Error &&
-      (error.message.includes("Missing SUPABASE_SERVICE_ROLE_KEY") ||
-        error.message.includes("Missing Supabase public environment variables"))
+      (error.message.includes("service role key is not configured") ||
+        error.message.includes("Supabase is not connected"))
     ) {
       return NextResponse.json(
         { error: "Prediction service is not configured." },
