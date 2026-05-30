@@ -11,6 +11,8 @@ import {
   saveDemoBooking,
   createDemoBookingId,
 } from "@/lib/demoMode";
+import { PaymentForm } from "@/components/booking/PaymentForm";
+import { PaymentSuccess } from "@/components/booking/PaymentSuccess";
 
 type BookingResponse = {
   data?: Booking[];
@@ -20,6 +22,19 @@ type BookingResponse = {
 type CreateBookingResponse = {
   data?: Booking;
   error?: string;
+};
+
+type Step = "form" | "payment" | "success";
+
+type PendingBooking = {
+  areaId: string;
+  slotId: string;
+  vehiclePlate: string;
+  startTime: string;
+  endTime: string;
+  totalPrice: number;
+  fullName: string;
+  emailAddress: string;
 };
 
 function toDateTimeLocalValue(date: Date) {
@@ -88,9 +103,11 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<Booking | null>(null);
+
+  const [step, setStep] = useState<Step>("form");
+  const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
+  const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
 
   const isDemo = getDemoSession() !== null;
 
@@ -160,18 +177,15 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
     };
   }, [isDemo]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleProceedToPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsSubmitting(true);
     setErrorMessage(null);
-    setConfirmation(null);
 
     const startIso = new Date(startTime || toDateTimeLocalValue(new Date())).toISOString();
     const endIso = new Date(endTime || toDateTimeLocalValue(new Date())).toISOString();
 
     if (new Date(startIso) >= new Date(endIso)) {
       setErrorMessage("End time must be after start time.");
-      setIsSubmitting(false);
       return;
     }
 
@@ -182,65 +196,84 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
     );
     const price = Number((hours * (slot?.hourly_rate ?? 0)).toFixed(2));
 
-    try {
-      let bookingResult: Booking | null = null;
+    setPendingBooking({
+      areaId: selectedAreaId,
+      slotId: effectiveSelectedSlotId,
+      vehiclePlate: vehiclePlate.trim().toUpperCase(),
+      startTime: startIso,
+      endTime: endIso,
+      totalPrice: price,
+      fullName,
+      emailAddress,
+    });
+    setStep("payment");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
-      if (!isDemo) {
-        const response = await fetch("/api/bookings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            parkingAreaId: selectedAreaId,
-            parkingSlotId: effectiveSelectedSlotId,
-            vehiclePlate,
-            startTime: startIso,
-            endTime: endIso,
-          }),
-        });
-        const payload = (await response.json()) as CreateBookingResponse;
+  async function createBooking(): Promise<Booking> {
+    if (!pendingBooking) throw new Error("No pending booking.");
 
-        if (response.ok && payload.data) {
-          bookingResult = payload.data;
-        } else if (payload.error) {
-          setErrorMessage(payload.error);
-          setIsSubmitting(false);
-          return;
-        }
+    let bookingResult: Booking | null = null;
+
+    if (!isDemo) {
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parkingAreaId: pendingBooking.areaId,
+          parkingSlotId: pendingBooking.slotId,
+          vehiclePlate: pendingBooking.vehiclePlate,
+          startTime: pendingBooking.startTime,
+          endTime: pendingBooking.endTime,
+        }),
+      });
+      const payload = (await response.json()) as CreateBookingResponse;
+
+      if (response.ok && payload.data) {
+        bookingResult = payload.data;
+      } else if (payload.error) {
+        throw new Error(payload.error);
       }
-
-      if (!bookingResult) {
-        bookingResult = {
-          id: createDemoBookingId(),
-          user_id: getDemoSession()?.id ?? "local-user",
-          parking_area_id: selectedAreaId,
-          parking_slot_id: effectiveSelectedSlotId,
-          vehicle_plate: vehiclePlate.trim().toUpperCase(),
-          start_time: startIso,
-          end_time: endIso,
-          status: "confirmed",
-          total_price: price,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        saveDemoBooking(bookingResult);
-      }
-
-      setConfirmation(bookingResult);
-      setVehiclePlate("");
-
-      const refreshed = await fetchBookingData(isDemo);
-      setAreas(refreshed.parkingAreas);
-      setSlots(refreshed.parkingSlots);
-      setBookings(isDemo ? getDemoBookings() : refreshed.bookings);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to create booking. Please try again.",
-      );
-    } finally {
-      setIsSubmitting(false);
     }
+
+    if (!bookingResult) {
+      bookingResult = {
+        id: createDemoBookingId(),
+        user_id: getDemoSession()?.id ?? "local-user",
+        parking_area_id: pendingBooking.areaId,
+        parking_slot_id: pendingBooking.slotId,
+        vehicle_plate: pendingBooking.vehiclePlate,
+        start_time: pendingBooking.startTime,
+        end_time: pendingBooking.endTime,
+        status: "confirmed",
+        total_price: pendingBooking.totalPrice,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      saveDemoBooking(bookingResult);
+    }
+
+    return bookingResult;
+  }
+
+  async function handlePaymentComplete(booking: Booking) {
+    setConfirmedBooking(booking);
+    setStep("success");
+    setVehiclePlate("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    const refreshed = await fetchBookingData(isDemo);
+    setAreas(refreshed.parkingAreas);
+    setSlots(refreshed.parkingSlots);
+    setBookings(isDemo ? getDemoBookings() : refreshed.bookings);
+  }
+
+  function handleNewBooking() {
+    setStep("form");
+    setPendingBooking(null);
+    setConfirmedBooking(null);
+    setErrorMessage(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   if (isLoading) {
@@ -252,15 +285,72 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
     );
   }
 
+  if (step === "success" && confirmedBooking) {
+    return (
+      <PaymentSuccess
+        booking={confirmedBooking}
+        area={areasById.get(confirmedBooking.parking_area_id)}
+        slot={slotsById.get(confirmedBooking.parking_slot_id)}
+        onNewBooking={handleNewBooking}
+      />
+    );
+  }
+
+  if (step === "payment" && pendingBooking) {
+    return (
+      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <PaymentForm
+          pending={pendingBooking}
+          area={areasById.get(pendingBooking.areaId)}
+          slot={slotsById.get(pendingBooking.slotId)}
+          onPaymentComplete={handlePaymentComplete}
+          onBack={() => setStep("form")}
+          onCreateBooking={createBooking}
+        />
+
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl shadow-blue-950/5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.22em] text-blue-600">
+                My bookings
+              </p>
+              <h2 className="mt-3 text-3xl font-black text-slate-950">Your reservations</h2>
+            </div>
+            <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700">
+              {bookings.length} total
+            </span>
+          </div>
+
+          {!bookings.length ? (
+            <div className="mt-8 rounded-2xl bg-slate-50 p-6 text-center">
+              <p className="text-sm font-bold text-slate-700">No bookings yet.</p>
+            </div>
+          ) : (
+            <div className="mt-8 space-y-4">
+              {bookings.slice(0, 5).map((booking) => (
+                <BookingCard
+                  key={booking.id}
+                  booking={booking}
+                  area={areasById.get(booking.parking_area_id)}
+                  slot={slotsById.get(booking.parking_slot_id)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl shadow-blue-950/5">
         <p className="text-sm font-bold uppercase tracking-[0.22em] text-blue-600">
-          Book a slot
+          Step 1 of 2
         </p>
         <h2 className="mt-3 text-3xl font-black text-slate-950">Reserve available parking</h2>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          Select an available slot, fill in your details, and confirm your booking.
+          Select an available slot, fill in your details, then proceed to payment.
         </p>
 
         {errorMessage ? (
@@ -269,46 +359,12 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
           </div>
         ) : null}
 
-        {confirmation ? (
-          <div className="mt-6 space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-700">
-              Booking confirmed
-            </p>
-            <div className="grid gap-2 text-sm">
-              <p>
-                <span className="font-bold text-slate-700">Location:</span>{" "}
-                {areasById.get(confirmation.parking_area_id)?.name ?? "Parking Area"}
-              </p>
-              <p>
-                <span className="font-bold text-slate-700">Slot:</span>{" "}
-                {slotsById.get(confirmation.parking_slot_id)?.slot_number ?? "Reserved"}
-              </p>
-              <p>
-                <span className="font-bold text-slate-700">Vehicle:</span>{" "}
-                {confirmation.vehicle_plate}
-              </p>
-              <p>
-                <span className="font-bold text-slate-700">Time:</span>{" "}
-                {formatDateTime(confirmation.start_time)} – {formatDateTime(confirmation.end_time)}
-              </p>
-              <p>
-                <span className="font-bold text-slate-700">Total:</span>{" "}
-                ${confirmation.total_price.toFixed(2)}
-              </p>
-              <p>
-                <span className="font-bold text-slate-700">Status:</span>{" "}
-                <span className="capitalize">{confirmation.status}</span>
-              </p>
-            </div>
-          </div>
-        ) : null}
-
         {!areas.length ? (
           <div className="mt-8 rounded-2xl bg-slate-50 p-6 text-center">
             <p className="text-sm font-bold text-slate-700">No parking areas available.</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={handleProceedToPayment} className="mt-8 space-y-5">
             <label className="block">
               <span className="text-sm font-bold text-slate-700">Parking location</span>
               <select
@@ -356,7 +412,6 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </label>
-
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">End time</span>
                 <input
@@ -391,7 +446,6 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                 />
               </label>
-
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Email address</span>
                 <input
@@ -407,10 +461,10 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
 
             <button
               type="submit"
-              disabled={isSubmitting || !effectiveSelectedSlotId}
+              disabled={!effectiveSelectedSlotId}
               className="inline-flex w-full items-center justify-center rounded-full bg-blue-600 px-6 py-3.5 text-sm font-black text-white shadow-xl shadow-blue-600/25 transition hover:-translate-y-0.5 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
-              {isSubmitting ? "Creating booking..." : "Confirm Booking"}
+              Proceed to Payment
             </button>
           </form>
         )}
@@ -438,60 +492,57 @@ export function BookingClient({ initialAreaId = "", initialSlotId = "" }: Bookin
           </div>
         ) : (
           <div className="mt-8 space-y-4">
-            {bookings.map((booking) => {
-              const area = areasById.get(booking.parking_area_id);
-              const slot = slotsById.get(booking.parking_slot_id);
-
-              return (
-                <article
-                  key={booking.id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-black text-slate-950">
-                        {area?.name ?? "Parking area"}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Slot {slot?.slot_number ?? "reserved"} - {booking.vehicle_plate}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-black capitalize text-blue-700 ring-1 ring-blue-100">
-                      {booking.status}
-                    </span>
-                  </div>
-                  <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                        Starts
-                      </p>
-                      <p className="mt-1 font-semibold text-slate-700">
-                        {formatDateTime(booking.start_time)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                        Ends
-                      </p>
-                      <p className="mt-1 font-semibold text-slate-700">
-                        {formatDateTime(booking.end_time)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                        Total
-                      </p>
-                      <p className="mt-1 font-semibold text-slate-700">
-                        ${booking.total_price.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+            {bookings.map((booking) => (
+              <BookingCard
+                key={booking.id}
+                booking={booking}
+                area={areasById.get(booking.parking_area_id)}
+                slot={slotsById.get(booking.parking_slot_id)}
+              />
+            ))}
           </div>
         )}
       </section>
     </div>
+  );
+}
+
+function BookingCard({
+  booking,
+  area,
+  slot,
+}: {
+  booking: Booking;
+  area: ParkingArea | undefined;
+  slot: ParkingSlot | undefined;
+}) {
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="font-black text-slate-950">{area?.name ?? "Parking area"}</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Slot {slot?.slot_number ?? "reserved"} - {booking.vehicle_plate}
+          </p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-black capitalize text-blue-700 ring-1 ring-blue-100">
+          {booking.status}
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Starts</p>
+          <p className="mt-1 font-semibold text-slate-700">{formatDateTime(booking.start_time)}</p>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Ends</p>
+          <p className="mt-1 font-semibold text-slate-700">{formatDateTime(booking.end_time)}</p>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Total</p>
+          <p className="mt-1 font-semibold text-slate-700">${booking.total_price.toFixed(2)}</p>
+        </div>
+      </div>
+    </article>
   );
 }
