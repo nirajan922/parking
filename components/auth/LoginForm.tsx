@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { isSafeRedirectPath } from "@/lib/apiValidation";
 import { signInWithEmail } from "@/services/authService";
-import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabaseClient";
+import { isSupabaseConfigured } from "@/lib/supabaseClient";
 import {
   isDemoCredentials,
   setDemoSession,
@@ -34,26 +34,31 @@ export function LoginForm() {
   );
   const registered = searchParams.get("registered") === "true";
 
+  const supabaseConnected = isSupabaseConfigured();
+
   useEffect(() => {
     if (getDemoSession()) {
       router.replace("/dashboard");
       return;
     }
 
-    async function checkExistingSession() {
-      if (!isSupabaseConfigured()) return;
-      try {
+    console.log("[SmartParking:login] Supabase configured:", supabaseConnected);
+
+    if (supabaseConnected) {
+      import("@/lib/supabaseClient").then(({ createSupabaseBrowserClient }) => {
         const supabase = createSupabaseBrowserClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          router.replace("/dashboard");
-        }
-      } catch {
-        // No session - stay on login page
-      }
+        console.log("[SmartParking:login] Supabase client created, checking session...");
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) {
+            console.log("[SmartParking:login] Existing session found, redirecting...");
+            router.replace("/dashboard");
+          } else {
+            console.log("[SmartParking:login] No existing session.");
+          }
+        });
+      });
     }
-    checkExistingSession();
-  }, [router]);
+  }, [router, supabaseConnected]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -69,25 +74,16 @@ export function LoginForm() {
     }
 
     try {
+      console.log("[SmartParking:login] Attempting signInWithPassword...");
       await signInWithEmail({ email, password });
+      console.log("[SmartParking:login] Login successful, redirecting...");
       router.replace(redirectPath);
       router.refresh();
     } catch (error: unknown) {
-      const fallback = "We could not sign you in. Check your credentials and try again.";
-      let message = fallback;
-      if (error instanceof Error) {
-        const cause = error.cause;
-        const causeMsg = cause && typeof cause === "object" && "message" in cause
-          ? String((cause as { message: string }).message)
-          : "";
-        if (causeMsg && !causeMsg.includes("Supabase is not connected")) {
-          message = causeMsg;
-        } else if (error.message.includes("Supabase is not connected")) {
-          message = "Supabase is not connected. Use the demo account below, or verify your deployment environment variables and redeploy.";
-        } else if (error.message && error.message !== fallback) {
-          message = error.message;
-        }
-      }
+      const message = error instanceof Error
+        ? error.message
+        : "We could not sign you in. Check your credentials and try again.";
+      console.error("[SmartParking:login] Login error:", message);
       setErrorMessage(message);
     } finally {
       setIsSubmitting(false);
@@ -99,6 +95,12 @@ export function LoginForm() {
       {registered ? (
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           Account created. You can now sign in.
+        </div>
+      ) : null}
+
+      {!supabaseConnected ? (
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Supabase not connected — demo account available below.
         </div>
       ) : null}
 

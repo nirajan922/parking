@@ -46,6 +46,14 @@ export function createSupabaseBrowserClient(): SupabaseClient<Database> {
         persistSession: true,
       },
     });
+    if (typeof window !== "undefined") {
+      console.log(
+        "[SmartParking] Supabase client created — URL:",
+        url.substring(0, 30) + "...",
+        "| Key:",
+        anonKey.substring(0, 10) + "...",
+      );
+    }
   }
 
   return browserClient;

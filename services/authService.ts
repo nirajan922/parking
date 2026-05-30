@@ -12,6 +12,7 @@ export type EmailPasswordCredentials = {
 export type SignUpResult = {
   user: User | null;
   session: Session | null;
+  confirmationRequired: boolean;
 };
 
 function getClient(client?: SmartParkingClient) {
@@ -34,29 +35,31 @@ function validatePassword(password: string) {
   }
 }
 
-function throwServiceError(message: string, cause: unknown): never {
-  throw new Error(message, { cause });
-}
-
 export async function signInWithEmail(
   { email, password }: EmailPasswordCredentials,
   client?: SmartParkingClient,
 ): Promise<Session> {
   validatePassword(password);
 
-  const { data, error } = await getClient(client).auth.signInWithPassword({
+  const supabase = getClient(client);
+
+  console.log("[SmartParking:auth] signInWithPassword — calling Supabase...");
+
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: normalizeEmail(email),
     password,
   });
 
   if (error) {
-    throwServiceError("Unable to sign in with the provided credentials.", error);
+    console.error("[SmartParking:auth] signInWithPassword FAILED:", error.message, error.status);
+    throw new Error(error.message);
   }
 
   if (!data.session) {
     throw new Error("Authentication did not return a session.");
   }
 
+  console.log("[SmartParking:auth] signInWithPassword SUCCESS — user:", data.user?.id);
   return data.session;
 }
 
@@ -66,18 +69,32 @@ export async function signUpWithEmail(
 ): Promise<SignUpResult> {
   validatePassword(password);
 
-  const { data, error } = await getClient(client).auth.signUp({
+  const supabase = getClient(client);
+
+  console.log("[SmartParking:auth] signUp — calling Supabase...");
+
+  const { data, error } = await supabase.auth.signUp({
     email: normalizeEmail(email),
     password,
   });
 
   if (error) {
-    throwServiceError("Unable to create an account with the provided credentials.", error);
+    console.error("[SmartParking:auth] signUp FAILED:", error.message, error.status);
+    throw new Error(error.message);
   }
+
+  const confirmationRequired = !data.session && data.user?.identities?.length === 0
+    ? false
+    : !data.session;
+
+  console.log("[SmartParking:auth] signUp result — user:", data.user?.id,
+    "| session:", data.session ? "YES" : "NO",
+    "| confirmationRequired:", confirmationRequired);
 
   return {
     user: data.user,
     session: data.session,
+    confirmationRequired,
   };
 }
 
@@ -85,7 +102,7 @@ export async function signOut(client?: SmartParkingClient): Promise<void> {
   const { error } = await getClient(client).auth.signOut();
 
   if (error) {
-    throwServiceError("Unable to sign out.", error);
+    throw new Error(error.message);
   }
 }
 
@@ -96,7 +113,7 @@ export async function getCurrentUser(client?: SmartParkingClient): Promise<User 
   } = await getClient(client).auth.getUser();
 
   if (error) {
-    throwServiceError("Unable to load the current user.", error);
+    return null;
   }
 
   return user;
@@ -125,7 +142,7 @@ export async function getCurrentUserProfile(
     .maybeSingle();
 
   if (error) {
-    throwServiceError("Unable to load the current user profile.", error);
+    throw new Error("Unable to load the current user profile.");
   }
 
   return data;
@@ -141,7 +158,7 @@ export async function requireAdminUser(client?: SmartParkingClient): Promise<Use
     .maybeSingle();
 
   if (error) {
-    throwServiceError("Unable to verify administrator permissions.", error);
+    throw new Error("Unable to verify administrator permissions.");
   }
 
   if (data?.role !== "admin") {

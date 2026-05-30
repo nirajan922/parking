@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { signUpWithEmail } from "@/services/authService";
-import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabaseClient";
+import { isSupabaseConfigured } from "@/lib/supabaseClient";
 import { getDemoSession } from "@/lib/demoMode";
 
 export function RegisterForm() {
@@ -15,26 +15,27 @@ export function RegisterForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const supabaseConnected = isSupabaseConfigured();
+
   useEffect(() => {
     if (getDemoSession()) {
       router.replace("/dashboard");
       return;
     }
 
-    async function checkExistingSession() {
-      if (!isSupabaseConfigured()) return;
-      try {
+    console.log("[SmartParking:register] Supabase configured:", supabaseConnected);
+
+    if (supabaseConnected) {
+      import("@/lib/supabaseClient").then(({ createSupabaseBrowserClient }) => {
         const supabase = createSupabaseBrowserClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          router.replace("/dashboard");
-        }
-      } catch {
-        // No session
-      }
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) {
+            router.replace("/dashboard");
+          }
+        });
+      });
     }
-    checkExistingSession();
-  }, [router]);
+  }, [router, supabaseConnected]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,37 +47,39 @@ export function RegisterForm() {
       return;
     }
 
+    if (!isSupabaseConfigured()) {
+      setErrorMessage("Cannot register — Supabase is not connected. Use the demo login on the sign in page.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
+      console.log("[SmartParking:register] Attempting signUp...");
       const result = await signUpWithEmail({ email, password });
 
       if (result.session) {
+        console.log("[SmartParking:register] Signup returned session — auto-confirmed, redirecting...");
         router.replace("/dashboard");
         router.refresh();
         return;
       }
 
-      setSuccessMessage("Account created successfully! You can now sign in.");
-      setTimeout(() => {
-        router.replace("/login?registered=true");
-      }, 1500);
-    } catch (error: unknown) {
-      const fallback = "We could not create your account. Please check your details and try again.";
-      let message = fallback;
-      if (error instanceof Error) {
-        const cause = error.cause;
-        const causeMsg = cause && typeof cause === "object" && "message" in cause
-          ? String((cause as { message: string }).message)
-          : "";
-        if (causeMsg && !causeMsg.includes("Supabase is not connected")) {
-          message = causeMsg;
-        } else if (error.message.includes("Supabase is not connected")) {
-          message = "Supabase is not connected. Please verify your deployment environment variables and redeploy.";
-        } else if (error.message && error.message !== fallback) {
-          message = error.message;
-        }
+      if (result.confirmationRequired) {
+        console.log("[SmartParking:register] Signup succeeded — email confirmation required.");
+        setSuccessMessage("Account created. Please check your email to confirm your account.");
+      } else {
+        console.log("[SmartParking:register] Signup succeeded — redirecting to login...");
+        setSuccessMessage("Account created successfully! You can now sign in.");
+        setTimeout(() => {
+          router.replace("/login?registered=true");
+        }, 2000);
       }
+    } catch (error: unknown) {
+      const message = error instanceof Error
+        ? error.message
+        : "We could not create your account. Please try again.";
+      console.error("[SmartParking:register] Signup error:", message);
       setErrorMessage(message);
     } finally {
       setIsSubmitting(false);
@@ -88,6 +91,12 @@ export function RegisterForm() {
       {successMessage ? (
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           {successMessage}
+        </div>
+      ) : null}
+
+      {!supabaseConnected ? (
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Supabase not connected — registration requires a configured Supabase instance. Use the demo login instead.
         </div>
       ) : null}
 
@@ -120,7 +129,7 @@ export function RegisterForm() {
           required
           minLength={8}
           className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-          placeholder="Create a secure password"
+          placeholder="Create a secure password (min 8 characters)"
         />
       </label>
 
