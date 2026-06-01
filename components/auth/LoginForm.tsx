@@ -4,20 +4,48 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { isSafeRedirectPath } from "@/lib/apiValidation";
 import { signInWithEmail } from "@/services/authService";
-import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabaseClient";
 import {
   isDemoCredentials,
   setDemoSession,
   getDemoSession,
-  DEMO_EMAIL,
 } from "@/lib/demoMode";
 
 function getSafeNextPath(nextPath: string | null) {
   if (!isSafeRedirectPath(nextPath)) {
-    return "/dashboard";
+    return null;
   }
 
   return nextPath;
+}
+
+async function getRoleAwareRedirectPath(requestedPath: string | null) {
+  const supabase = createSupabaseBrowserClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return requestedPath ?? "/dashboard";
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const defaultPath = profile?.role === "admin" ? "/admin" : "/dashboard";
+
+  if (!requestedPath || requestedPath === "/dashboard") {
+    return defaultPath;
+  }
+
+  if (requestedPath.startsWith("/admin") && profile?.role !== "admin") {
+    return "/dashboard";
+  }
+
+  return requestedPath;
 }
 
 export function LoginForm() {
@@ -28,7 +56,7 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const redirectPath = useMemo(
+  const requestedRedirectPath = useMemo(
     () => getSafeNextPath(searchParams.get("next")),
     [searchParams],
   );
@@ -38,27 +66,29 @@ export function LoginForm() {
 
   useEffect(() => {
     if (getDemoSession()) {
-      router.replace(redirectPath);
+      router.replace(requestedRedirectPath?.startsWith("/admin") ? "/dashboard" : requestedRedirectPath ?? "/dashboard");
       return;
     }
 
     console.log("[SmartParking:login] Supabase configured:", supabaseConnected);
 
     if (supabaseConnected) {
-      import("@/lib/supabaseClient").then(({ createSupabaseBrowserClient }) => {
+      import("@/lib/supabaseClient").then(async ({ createSupabaseBrowserClient }) => {
         const supabase = createSupabaseBrowserClient();
         console.log("[SmartParking:login] Supabase client created, checking session...");
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) {
-            console.log("[SmartParking:login] Existing session found, redirecting...");
-            router.replace(redirectPath);
-          } else {
-            console.log("[SmartParking:login] No existing session.");
-          }
-        });
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          console.log("[SmartParking:login] Existing session found, redirecting...");
+          router.replace(await getRoleAwareRedirectPath(requestedRedirectPath));
+        } else {
+          console.log("[SmartParking:login] No existing session.");
+        }
       });
     }
-  }, [redirectPath, router, supabaseConnected]);
+  }, [requestedRedirectPath, router, supabaseConnected]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,7 +97,7 @@ export function LoginForm() {
 
     if (isDemoCredentials(email, password)) {
       setDemoSession();
-      router.replace(redirectPath);
+      router.replace(requestedRedirectPath?.startsWith("/admin") ? "/dashboard" : requestedRedirectPath ?? "/dashboard");
       router.refresh();
       setIsSubmitting(false);
       return;
@@ -77,7 +107,7 @@ export function LoginForm() {
       console.log("[SmartParking:login] Attempting signInWithPassword...");
       await signInWithEmail({ email, password });
       console.log("[SmartParking:login] Login successful, redirecting...");
-      router.replace(redirectPath);
+      router.replace(await getRoleAwareRedirectPath(requestedRedirectPath));
       router.refresh();
     } catch (error: unknown) {
       const message = error instanceof Error
@@ -144,15 +174,6 @@ export function LoginForm() {
       >
         {isSubmitting ? "Signing in..." : "Sign in to dashboard"}
       </button>
-
-      <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3">
-        <p className="text-xs font-bold text-blue-700">Demo account</p>
-        <p className="mt-1 text-xs text-blue-600">
-          Email: <span className="font-mono font-semibold">{DEMO_EMAIL}</span>
-          <br />
-          Password: <span className="font-mono font-semibold">Demo12345</span>
-        </p>
-      </div>
     </form>
   );
 }
