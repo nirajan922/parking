@@ -50,10 +50,13 @@ create table if not exists public.parking_areas (
   address text,
   latitude numeric(10, 7),
   longitude numeric(10, 7),
+  source text not null default 'manual',
+  external_id text,
   total_slots integer not null default 0 check (total_slots >= 0),
   status public.parking_area_status not null default 'open',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (source, external_id)
 );
 
 create table if not exists public.parking_slots (
@@ -99,13 +102,31 @@ create table if not exists public.predictions (
   check (prediction_window_end > prediction_window_start)
 );
 
+create table if not exists public.contact_messages (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  email text not null,
+  subject text not null,
+  message text not null,
+  status text not null default 'new',
+  created_at timestamptz not null default now()
+);
+
+alter table public.parking_areas add column if not exists source text not null default 'manual';
+alter table public.parking_areas add column if not exists external_id text;
+create unique index if not exists parking_areas_source_external_id_uidx
+on public.parking_areas(source, external_id)
+where external_id is not null;
+
 create index if not exists profiles_role_idx on public.profiles(role);
 create index if not exists parking_areas_slug_idx on public.parking_areas(slug);
+create index if not exists parking_areas_source_external_idx on public.parking_areas(source, external_id);
 create index if not exists parking_slots_area_status_idx on public.parking_slots(parking_area_id, status);
 create index if not exists bookings_user_start_idx on public.bookings(user_id, start_time desc);
 create index if not exists bookings_slot_window_idx on public.bookings(parking_slot_id, start_time, end_time);
 create index if not exists bookings_status_idx on public.bookings(status);
 create index if not exists predictions_area_created_idx on public.predictions(parking_area_id, created_at desc);
+create index if not exists contact_messages_created_idx on public.contact_messages(created_at desc);
 
 drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at
@@ -232,6 +253,7 @@ alter table public.parking_areas enable row level security;
 alter table public.parking_slots enable row level security;
 alter table public.bookings enable row level security;
 alter table public.predictions enable row level security;
+alter table public.contact_messages enable row level security;
 
 drop policy if exists "Profiles are readable by owner or admins" on public.profiles;
 create policy "Profiles are readable by owner or admins"
@@ -305,7 +327,18 @@ on public.predictions for all
 using (public.has_role('admin'))
 with check (public.has_role('admin'));
 
+drop policy if exists "Anyone can create contact messages" on public.contact_messages;
+create policy "Anyone can create contact messages"
+on public.contact_messages for insert
+with check (true);
+
+drop policy if exists "Admins can read contact messages" on public.contact_messages;
+create policy "Admins can read contact messages"
+on public.contact_messages for select
+using (public.has_role('admin'));
+
 grant usage on schema public to anon, authenticated;
 grant select on public.parking_areas, public.parking_slots, public.predictions to anon;
-grant all on public.profiles, public.parking_areas, public.parking_slots, public.bookings, public.predictions to authenticated;
-grant all on public.profiles, public.parking_areas, public.parking_slots, public.bookings, public.predictions to service_role;
+grant insert on public.contact_messages to anon, authenticated;
+grant all on public.profiles, public.parking_areas, public.parking_slots, public.bookings, public.predictions, public.contact_messages to authenticated;
+grant all on public.profiles, public.parking_areas, public.parking_slots, public.bookings, public.predictions, public.contact_messages to service_role;

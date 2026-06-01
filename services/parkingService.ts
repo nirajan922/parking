@@ -40,6 +40,8 @@ export type CreateParkingAreaInput = {
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  source?: string;
+  externalId?: string | null;
   status?: ParkingAreaStatus;
 };
 
@@ -97,6 +99,16 @@ function normalizeRate(rate = 0) {
   }
 
   return Number(rate.toFixed(2));
+}
+
+function normalizeSource(source = "manual") {
+  const normalized = source.trim().toLowerCase();
+
+  if (!/^[a-z0-9_-]{2,40}$/.test(normalized)) {
+    throw new Error("Source must use lowercase letters, numbers, underscores, or hyphens.");
+  }
+
+  return normalized;
 }
 
 async function refreshParkingAreaTotalSlots(client: SmartParkingClient, parkingAreaId: string) {
@@ -279,6 +291,8 @@ export async function createParkingArea(
       address: input.address?.trim() || null,
       latitude: input.latitude ?? null,
       longitude: input.longitude ?? null,
+      source: normalizeSource(input.source),
+      external_id: input.externalId?.trim() || null,
       status: input.status ?? "open",
       total_slots: 0,
     })
@@ -308,6 +322,8 @@ export async function updateParkingArea(
   if (input.address !== undefined) updatePayload.address = input.address?.trim() || null;
   if (input.latitude !== undefined) updatePayload.latitude = input.latitude;
   if (input.longitude !== undefined) updatePayload.longitude = input.longitude;
+  if (input.source !== undefined) updatePayload.source = normalizeSource(input.source);
+  if (input.externalId !== undefined) updatePayload.external_id = input.externalId?.trim() || null;
   if (input.status !== undefined) updatePayload.status = input.status;
 
   const { data, error } = await getClient(client)

@@ -4,7 +4,7 @@ export const navigation = [
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Dashboard", href: "#dashboard" },
-  { label: "Contact", href: "#contact" },
+  { label: "Contact", href: "/contact" },
 ];
 
 export const parkingAreas = [

@@ -3,35 +3,45 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/database.types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-function requirePublicSupabaseEnv() {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Missing Supabase public environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-    );
-  }
-
-  return { supabaseUrl, supabaseAnonKey };
+function readPublicEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  return { url, anonKey };
 }
 
-function requireServerSupabaseEnv() {
-  const env = requirePublicSupabaseEnv();
+function requirePublicEnv() {
+  const { url, anonKey } = readPublicEnv();
 
-  if (!supabaseServiceRoleKey) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY for privileged server database access.");
+  if (!url || !anonKey) {
+    console.error(
+      "[SmartParking:server] Supabase env check — URL:",
+      url ? "set" : "MISSING",
+      "| ANON_KEY:",
+      anonKey ? "set" : "MISSING",
+    );
+    throw new Error("Supabase is not connected on the server.");
   }
 
-  return { ...env, supabaseServiceRoleKey };
+  return { url, anonKey };
+}
+
+function requireServiceRoleEnv() {
+  const { url, anonKey } = requirePublicEnv();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+
+  if (!serviceRoleKey) {
+    console.error("[SmartParking:server] SUPABASE_SERVICE_ROLE_KEY is MISSING");
+    throw new Error("Supabase service role key is not configured on the server.");
+  }
+
+  return { url, anonKey, serviceRoleKey };
 }
 
 export async function createSupabaseServerClient(): Promise<SupabaseClient<Database>> {
-  const env = requirePublicSupabaseEnv();
+  const { url, anonKey } = requirePublicEnv();
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
+  return createServerClient<Database>(url, anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -55,9 +65,9 @@ export async function createSupabaseServerClient(): Promise<SupabaseClient<Datab
 }
 
 export function createSupabaseAdminClient(): SupabaseClient<Database> {
-  const env = requireServerSupabaseEnv();
+  const { url, serviceRoleKey } = requireServiceRoleEnv();
 
-  return createClient<Database>(env.supabaseUrl, env.supabaseServiceRoleKey, {
+  return createClient<Database>(url, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       detectSessionInUrl: false,

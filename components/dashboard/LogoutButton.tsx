@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signOut } from "@/services/authService";
+import { clearDemoSession, isDemoMode } from "@/lib/demoMode";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -14,7 +15,11 @@ export function LogoutButton() {
     setErrorMessage(null);
 
     try {
-      await signOut();
+      if (isDemoMode()) {
+        clearDemoSession();
+      } else {
+        await signOut();
+      }
       router.replace("/login");
       router.refresh();
     } catch {

@@ -1,16 +1,26 @@
 # Smart Parking Availability Predictor
 
-A professional SaaS-style landing website for an AI-powered smart parking availability predictor. The site is built with Next.js, TypeScript, and Tailwind CSS, using a responsive blue/navy design system and reusable UI components.
+Assessment-level full-stack prototype for searching parking, importing OpenStreetMap parking locations into Supabase, booking slots, saving predictions, and viewing dashboard summaries.
 
-## Tech Stack
+## Tech stack
 
 - Next.js App Router
-- TypeScript
+- React and TypeScript
 - Tailwind CSS
-- Supabase Auth and Database
-- ESLint
+- Supabase Auth and PostgreSQL
+- OpenStreetMap Nominatim and Overpass APIs
 
-## Getting Started
+## Current prototype scope
+
+The app now supports the core workflow:
+
+```text
+Search parking -> import/save OSM area -> book slot -> view/cancel booking -> generate baseline prediction -> view dashboard summary
+```
+
+Prediction is intentionally implemented as a baseline rule-based engine, not a trained ML model. It uses current slot availability, selected date/time, weekday/weekend, and demand time segment, then stores the result in Supabase.
+
+## Getting started
 
 Install dependencies:
 
@@ -18,13 +28,13 @@ Install dependencies:
 npm install
 ```
 
-Create a local environment file:
+Create local environment variables:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Then add your Supabase project URL and keys:
+Fill in:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
@@ -38,39 +48,91 @@ Run the development server:
 npm run dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser.
+Open `http://127.0.0.1:3000`.
+
+## Supabase setup
+
+1. Create a Supabase project.
+2. Open SQL Editor.
+3. Run `supabase/schema.sql`.
+4. Run `supabase/seed.sql`.
+5. Create a real Supabase Auth user for login testing.
+6. Optional admin role:
+
+```sql
+update public.profiles
+set role = 'admin'
+where id = '<auth-user-id>';
+```
+
+`schema.sql` creates:
+
+- `profiles`
+- `parking_areas`
+- `parking_slots`
+- `bookings`
+- `predictions`
+- `contact_messages`
+
+It also enables Row Level Security policies for user-owned bookings, admin management, public parking reads, public prediction reads, and contact message submission.
+
+## Demo credentials
+
+For assessment walkthroughs without a Supabase Auth user:
+
+- Email: `demo@smartparking.com`
+- Password: `Demo12345`
+
+Demo mode uses browser storage. It is useful for UI review but Supabase mode should be used for persistence evidence.
+
+## Main routes
+
+| Route | Purpose |
+|---|---|
+| `/` | Landing page |
+| `/parking/search` | OSM parking search and import-to-Supabase booking handoff |
+| `/bookings` | Authenticated booking form with simulated payment |
+| `/my-bookings` | User booking history and cancellation |
+| `/dashboard` | Authenticated dashboard summary and baseline prediction generator |
+| `/admin` | Admin parking and booking overview |
+| `/contact` | Contact form stored in Supabase |
+
+## API routes
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/parking/areas` | List Supabase parking areas |
+| `GET /api/parking/areas/:id` | Load area and slots |
+| `POST /api/parking/import` | Import OSM result into Supabase with generated slots |
+| `GET /api/bookings` | List current user bookings |
+| `POST /api/bookings` | Create persistent booking |
+| `GET /api/bookings/:id` | Load user-owned booking |
+| `PATCH /api/bookings/:id` | Cancel user-owned booking |
+| `GET /api/predictions` | List stored predictions |
+| `POST /api/predictions` | Generate and store baseline prediction |
+| `GET /api/dashboard` | Dashboard summary metrics |
+| `POST /api/contact` | Store contact message |
+| `/api/admin/*` | Admin parking and booking management |
 
 ## Scripts
 
 ```bash
 npm run dev
-npm run build
 npm run lint
+npm run typecheck
+npm run build
+npm test
 ```
 
-## Project Structure
+## Documentation
 
-```text
-app/                Next.js pages, API routes, auth callback, layout, and styles
-components/         Reusable sections and UI components
-lib/                Shared data, Supabase clients, and database types
-services/           Parking, booking, prediction, and auth service modules
-```
+- Testing checklist: `docs/testing.md`
+- Deployment steps: `docs/deployment.md`
+- Security notes: `SECURITY.md`
 
-## Supabase Integration
+## Honest limitations
 
-- `supabase/schema.sql` contains the paste-ready SQL schema for Supabase SQL Editor.
-- `lib/supabaseClient.ts` creates a browser Supabase client for client components.
-- `lib/supabaseServer.ts` creates request-scoped server clients and a server-only admin client.
-- `app/auth/callback/route.ts` handles Supabase Auth redirects safely.
-- `app/login`, `app/register`, and `app/dashboard` provide Supabase Auth flows and a protected dashboard.
-- `app/parking/search` provides a real Supabase-powered parking search experience with search input, location filtering, nearby cards, distance/price fields, a map-style placeholder, loading, empty, and error states.
-- `app/bookings` lets authenticated users reserve live available slots and view only their own bookings.
-- `app/admin` provides an admin-only dashboard for booking overview and parking management.
-- API routes include `GET /api/parking/areas`, `GET /api/parking/areas/:id`, `GET|POST /api/bookings`, rule-based `GET|POST /api/predictions`, and admin-only booking/parking management routes under `/api/admin`.
-- `POST /api/predictions` estimates availability from time of day, weekday/weekend, current available slots, and total slots, then stores each request in Supabase.
-- Service modules accept an optional Supabase client, so server routes/actions can inject the server client while browser flows can use the browser client.
-
-## Security
-
-See [SECURITY.md](./SECURITY.md) for authentication checks, role-based access control, Row Level Security policies, environment variable handling, booking ownership rules, input validation, and safe API error handling.
+- No trained ML model or historical dataset pipeline is included yet.
+- OSM search discovers real locations, but imported availability/slot details are generated for prototype evidence.
+- Payment is simulated.
+- Demo login is not production authentication.

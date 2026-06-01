@@ -2,36 +2,58 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-function requirePublicSupabaseEnv() {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Missing Supabase public environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-    );
-  }
-
-  return { supabaseUrl, supabaseAnonKey };
+function readSupabaseEnv() {
+  return {
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+  };
 }
 
 let browserClient: SupabaseClient<Database> | undefined;
+let cachedUrl = "";
+
+export function isSupabaseConfigured(): boolean {
+  const { url, anonKey } = readSupabaseEnv();
+  return url.length > 0 && anonKey.length > 0;
+}
 
 export function createSupabaseBrowserClient(): SupabaseClient<Database> {
-  const env = requirePublicSupabaseEnv();
+  const { url, anonKey } = readSupabaseEnv();
 
-  if (!browserClient) {
-    browserClient = createBrowserClient<Database>(
-      env.supabaseUrl,
-      env.supabaseAnonKey,
-      {
-        auth: {
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-          persistSession: true,
-        },
-      },
+  if (typeof window !== "undefined" && (!url || !anonKey)) {
+    console.warn(
+      "[SmartParking] Supabase env check — URL:",
+      url ? `set (${url.substring(0, 20)}...)` : "MISSING",
+      "| ANON_KEY:",
+      anonKey ? `set (${anonKey.substring(0, 10)}...)` : "MISSING",
     );
+  }
+
+  if (!url || !anonKey) {
+    throw new Error(
+      "Supabase is not connected. Please verify NEXT_PUBLIC_SUPABASE_URL " +
+      "and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your deployment environment, " +
+      "then redeploy. You can still use the demo account to try the app.",
+    );
+  }
+
+  if (!browserClient || cachedUrl !== url) {
+    cachedUrl = url;
+    browserClient = createBrowserClient<Database>(url, anonKey, {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        persistSession: true,
+      },
+    });
+    if (typeof window !== "undefined") {
+      console.log(
+        "[SmartParking] Supabase client created — URL:",
+        url.substring(0, 30) + "...",
+        "| Key:",
+        anonKey.substring(0, 10) + "...",
+      );
+    }
   }
 
   return browserClient;

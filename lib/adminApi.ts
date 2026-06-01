@@ -22,7 +22,7 @@ export function adminErrorResponse(error: unknown, fallback = "Admin request fai
 
   if (
     error instanceof Error &&
-    error.message.includes("Missing Supabase public environment variables")
+    error.message.includes("Supabase is not connected")
   ) {
     return NextResponse.json({ error: "Admin service is not configured." }, { status: 500 });
   }

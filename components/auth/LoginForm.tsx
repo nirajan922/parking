@@ -1,9 +1,16 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { isSafeRedirectPath } from "@/lib/apiValidation";
 import { signInWithEmail } from "@/services/authService";
+import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import {
+  isDemoCredentials,
+  setDemoSession,
+  getDemoSession,
+  DEMO_EMAIL,
+} from "@/lib/demoMode";
 
 function getSafeNextPath(nextPath: string | null) {
   if (!isSafeRedirectPath(nextPath)) {
@@ -27,17 +34,57 @@ export function LoginForm() {
   );
   const registered = searchParams.get("registered") === "true";
 
+  const supabaseConnected = isSupabaseConfigured();
+
+  useEffect(() => {
+    if (getDemoSession()) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    console.log("[SmartParking:login] Supabase configured:", supabaseConnected);
+
+    if (supabaseConnected) {
+      import("@/lib/supabaseClient").then(({ createSupabaseBrowserClient }) => {
+        const supabase = createSupabaseBrowserClient();
+        console.log("[SmartParking:login] Supabase client created, checking session...");
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) {
+            console.log("[SmartParking:login] Existing session found, redirecting...");
+            router.replace("/dashboard");
+          } else {
+            console.log("[SmartParking:login] No existing session.");
+          }
+        });
+      });
+    }
+  }, [router, supabaseConnected]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    try {
-      await signInWithEmail({ email, password });
+    if (isDemoCredentials(email, password)) {
+      setDemoSession();
       router.replace(redirectPath);
       router.refresh();
-    } catch {
-      setErrorMessage("We could not sign you in. Check your credentials and try again.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      console.log("[SmartParking:login] Attempting signInWithPassword...");
+      await signInWithEmail({ email, password });
+      console.log("[SmartParking:login] Login successful, redirecting...");
+      router.replace(redirectPath);
+      router.refresh();
+    } catch (error: unknown) {
+      const message = error instanceof Error
+        ? error.message
+        : "We could not sign you in. Check your credentials and try again.";
+      console.error("[SmartParking:login] Login error:", message);
+      setErrorMessage(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -48,6 +95,12 @@ export function LoginForm() {
       {registered ? (
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           Account created. You can now sign in.
+        </div>
+      ) : null}
+
+      {!supabaseConnected ? (
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Supabase not connected — demo account available below.
         </div>
       ) : null}
 
@@ -91,6 +144,15 @@ export function LoginForm() {
       >
         {isSubmitting ? "Signing in..." : "Sign in to dashboard"}
       </button>
+
+      <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3">
+        <p className="text-xs font-bold text-blue-700">Demo account</p>
+        <p className="mt-1 text-xs text-blue-600">
+          Email: <span className="font-mono font-semibold">{DEMO_EMAIL}</span>
+          <br />
+          Password: <span className="font-mono font-semibold">Demo12345</span>
+        </p>
+      </div>
     </form>
   );
 }

@@ -59,8 +59,8 @@ export function getPublicErrorMessage(error: unknown, fallback: string) {
 export function getApiErrorStatus(error: unknown) {
   if (
     error instanceof Error &&
-    (error.message.includes("Missing Supabase public environment variables") ||
-      error.message.includes("SUPABASE_SERVICE_ROLE_KEY"))
+    (error.message.includes("Supabase is not connected") ||
+      error.message.includes("service role key is not configured"))
   ) {
     return 500;
   }

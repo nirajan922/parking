@@ -60,6 +60,8 @@ export type Database = {
           address: string | null;
           latitude: number | null;
           longitude: number | null;
+          source: string;
+          external_id: string | null;
           total_slots: number;
           status: ParkingAreaStatus;
           created_at: string;
@@ -73,6 +75,8 @@ export type Database = {
           address?: string | null;
           latitude?: number | null;
           longitude?: number | null;
+          source?: string;
+          external_id?: string | null;
           total_slots?: number;
           status?: ParkingAreaStatus;
           created_at?: string;
@@ -86,6 +90,8 @@ export type Database = {
           address?: string | null;
           latitude?: number | null;
           longitude?: number | null;
+          source?: string;
+          external_id?: string | null;
           total_slots?: number;
           status?: ParkingAreaStatus;
           created_at?: string;
@@ -240,6 +246,36 @@ export type Database = {
           },
         ];
       };
+      contact_messages: {
+        Row: {
+          id: string;
+          full_name: string;
+          email: string;
+          subject: string;
+          message: string;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          full_name: string;
+          email: string;
+          subject: string;
+          message: string;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          full_name?: string;
+          email?: string;
+          subject?: string;
+          message?: string;
+          status?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -253,3 +289,4 @@ export type ParkingArea = Database["public"]["Tables"]["parking_areas"]["Row"];
 export type ParkingSlot = Database["public"]["Tables"]["parking_slots"]["Row"];
 export type Booking = Database["public"]["Tables"]["bookings"]["Row"];
 export type Prediction = Database["public"]["Tables"]["predictions"]["Row"];
+export type ContactMessage = Database["public"]["Tables"]["contact_messages"]["Row"];

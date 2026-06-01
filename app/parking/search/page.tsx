@@ -22,16 +22,16 @@ export default function SearchParkingPage() {
 
           <div className="flex items-center gap-3">
             <Link
-              href="/dashboard"
+              href="/my-bookings"
               className="hidden text-sm font-bold text-slate-600 transition hover:text-blue-700 sm:inline-flex"
             >
-              Dashboard
+              My Bookings
             </Link>
             <Link
-              href="/login"
+              href="/dashboard"
               className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-bold text-white shadow-xl shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-700"
             >
-              Sign in
+              Dashboard
             </Link>
           </div>
         </nav>
@@ -44,10 +44,10 @@ export default function SearchParkingPage() {
               Search Parking
             </p>
             <h1 className="mt-5 text-5xl font-black tracking-tight text-slate-950 sm:text-6xl">
-              Find real parking availability from Supabase.
+              Find available parking near you
             </h1>
             <p className="mt-5 text-lg leading-8 text-slate-600">
-              Browse live parking areas, slot availability, rates, and amenities from your connected database.
+              Browse parking areas, check availability, compare prices, and book your spot.
             </p>
           </div>
         </div>
