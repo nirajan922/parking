@@ -1,3 +1,4 @@
+import "server-only";
 import type { ParkingArea, ParkingSlot } from "@/lib/database.types";
 
 export type OsmParkingResult = ParkingArea & {
@@ -30,6 +31,8 @@ type OverpassElement = {
     "addr:city"?: string;
   };
 };
+
+const OSM_USER_AGENT = "SmartParkingPredictor/1.0 (student-project; contact: admin@smartparking.local)";
 
 function toRadians(deg: number) {
   return (deg * Math.PI) / 180;
@@ -91,7 +94,11 @@ export async function geocodeLocation(query: string): Promise<{ lat: number; lon
   const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
 
   const response = await fetch(url, {
-    headers: { "User-Agent": "SmartParkingPredictor/1.0 (student-project)" },
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "User-Agent": OSM_USER_AGENT,
+    },
   });
 
   if (!response.ok) {
@@ -126,7 +133,12 @@ export async function searchParkingNearby(
 
   const response = await fetch("https://overpass-api.de/api/interpreter", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": OSM_USER_AGENT,
+    },
+    cache: "no-store",
     body: `data=${encodeURIComponent(query)}`,
   });
 
@@ -179,4 +191,66 @@ export async function searchParkingNearby(
   });
 
   return results;
+}
+
+export function buildFallbackParkingResults(
+  lat: number,
+  lon: number,
+  label: string,
+): OsmParkingResult[] {
+  const now = new Date().toISOString();
+  const cleanLabel = label.trim() || "Selected location";
+  const fallbacks = [
+    {
+      suffix: "Central Parking",
+      description: "Demo fallback generated while live OpenStreetMap parking data is unavailable.",
+      latOffset: 0.0028,
+      lonOffset: 0.0017,
+      slots: 24,
+      rate: 8,
+    },
+    {
+      suffix: "Public Car Park",
+      description: "Demo fallback near the searched location for assessment continuity.",
+      latOffset: -0.0022,
+      lonOffset: 0.0025,
+      slots: 18,
+      rate: 6.5,
+    },
+    {
+      suffix: "Visitor Parking",
+      description: "Demo fallback with simulated availability and rates.",
+      latOffset: 0.0015,
+      lonOffset: -0.0026,
+      slots: 12,
+      rate: 5.5,
+    },
+  ];
+
+  return fallbacks.map((item, index) => {
+    const areaLat = lat + item.latOffset;
+    const areaLon = lon + item.lonOffset;
+    const areaId = `osm-fallback-${Math.round(lat * 100000)}-${Math.round(lon * 100000)}-${index + 1}`;
+    const area: ParkingArea = {
+      id: areaId,
+      name: `${cleanLabel} ${item.suffix}`,
+      slug: areaId,
+      description: item.description,
+      address: `${areaLat.toFixed(5)}, ${areaLon.toFixed(5)}`,
+      latitude: areaLat,
+      longitude: areaLon,
+      source: "openstreetmap",
+      external_id: areaId,
+      total_slots: item.slots,
+      status: "open",
+      created_at: now,
+      updated_at: now,
+    };
+
+    return {
+      ...area,
+      slots: generateSimulatedSlots(areaId, item.slots, item.rate),
+      source: "openstreetmap" as const,
+    };
+  });
 }

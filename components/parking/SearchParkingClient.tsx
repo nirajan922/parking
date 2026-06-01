@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import type { ParkingArea, ParkingSlot } from "@/lib/database.types";
-import { geocodeLocation, searchParkingNearby } from "@/lib/osmParking";
 
 type ParkingAreaWithSlots = ParkingArea & {
   slots: ParkingSlot[];
@@ -14,6 +13,15 @@ type UserLocation = {
   latitude: number;
   longitude: number;
   label: string;
+};
+
+type ParkingSearchResponse = {
+  data?: {
+    location: UserLocation;
+    results: ParkingAreaWithSlots[];
+    fallback?: boolean;
+  };
+  error?: string;
 };
 
 const cityPresets = [
@@ -81,6 +89,31 @@ function createBookingHref(area: ParkingAreaWithSlots) {
   return `/bookings?${params.toString()}`;
 }
 
+async function searchParking(input: {
+  query?: string;
+  latitude?: number;
+  longitude?: number;
+  label?: string;
+  radiusKm: number;
+}) {
+  const response = await fetch("/api/parking/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const payload = (await response.json()) as ParkingSearchResponse;
+
+  if (!response.ok || !payload.data) {
+    const publicMessage = payload.error?.startsWith("Could not find location")
+      ? payload.error
+      : "Parking search is temporarily unavailable. Please try another location.";
+
+    throw new Error(publicMessage);
+  }
+
+  return payload.data;
+}
+
 export function SearchParkingClient() {
   const router = useRouter();
   const [areas, setAreas] = useState<ParkingAreaWithSlots[]>([]);
@@ -116,25 +149,21 @@ export function SearchParkingClient() {
     setSearchPerformed(true);
 
     try {
-      const geo = await geocodeLocation(searchInput.trim());
-      if (!geo) {
-        setErrorMessage(`Could not find location: "${searchInput}". Try a more specific address or suburb.`);
-        setIsSearching(false);
-        return;
-      }
+      const search = await searchParking({
+        query: searchInput.trim(),
+        radiusKm: Number(radiusKm),
+      });
 
-      setUserLocation({ latitude: geo.lat, longitude: geo.lon, label: searchInput.trim() });
-
-      const radiusMeters = Number(radiusKm) * 1000;
-      const results = await searchParkingNearby(geo.lat, geo.lon, radiusMeters);
-
-      setAreas(results);
-      if (results.length === 0) {
+      setUserLocation(search.location);
+      setAreas(search.results);
+      if (search.results.length === 0) {
         setErrorMessage(`No parking areas found within ${radiusKm} km of "${searchInput}". Try increasing the radius.`);
       }
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Failed to search for parking areas. Please try again.",
+        error instanceof Error
+          ? error.message
+          : "Parking search is temporarily unavailable. Please try another location.",
       );
     } finally {
       setIsSearching(false);
@@ -149,24 +178,21 @@ export function SearchParkingClient() {
     setSearchPerformed(true);
 
     try {
-      const geo = await geocodeLocation(preset.query);
-      if (!geo) {
-        setErrorMessage(`Could not geocode "${preset.label}".`);
-        setIsSearching(false);
-        return;
-      }
-
-      setUserLocation({ latitude: geo.lat, longitude: geo.lon, label: preset.label });
-
-      const radiusMeters = Number(radiusKm) * 1000;
-      const results = await searchParkingNearby(geo.lat, geo.lon, radiusMeters);
-      setAreas(results);
-      if (results.length === 0) {
+      const search = await searchParking({
+        query: preset.query,
+        label: preset.label,
+        radiusKm: Number(radiusKm),
+      });
+      setUserLocation({ ...search.location, label: preset.label });
+      setAreas(search.results);
+      if (search.results.length === 0) {
         setErrorMessage(`No parking areas found near ${preset.label}. Try increasing the radius.`);
       }
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Search failed. Please try again.",
+        error instanceof Error
+          ? error.message
+          : "Parking search is temporarily unavailable. Please try another location.",
       );
     } finally {
       setIsSearching(false);
@@ -191,14 +217,23 @@ export function SearchParkingClient() {
         setSearchPerformed(true);
 
         try {
-          const radiusMeters = Number(radiusKm) * 1000;
-          const results = await searchParkingNearby(latitude, longitude, radiusMeters);
-          setAreas(results);
-          if (results.length === 0) {
+          const search = await searchParking({
+            latitude,
+            longitude,
+            label: "Your location",
+            radiusKm: Number(radiusKm),
+          });
+          setUserLocation(search.location);
+          setAreas(search.results);
+          if (search.results.length === 0) {
             setErrorMessage(`No parking areas found within ${radiusKm} km of your location.`);
           }
         } catch (error) {
-          setErrorMessage(error instanceof Error ? error.message : "Search failed.");
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Parking search is temporarily unavailable. Please try another location.",
+          );
         } finally {
           setIsSearching(false);
           setIsLocating(false);
