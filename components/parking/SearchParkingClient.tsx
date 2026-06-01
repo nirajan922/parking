@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import type { ParkingArea, ParkingSlot } from "@/lib/database.types";
 import { geocodeLocation, searchParkingNearby } from "@/lib/osmParking";
@@ -82,6 +82,7 @@ function createBookingHref(area: ParkingAreaWithSlots) {
 }
 
 export function SearchParkingClient() {
+  const router = useRouter();
   const [areas, setAreas] = useState<ParkingAreaWithSlots[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [radiusKm, setRadiusKm] = useState("2");
@@ -89,11 +90,13 @@ export function SearchParkingClient() {
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [importingAreaId, setImportingAreaId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchPerformed, setSearchPerformed] = useState(false);
 
   const nearbyAreas = areas.slice(0, 6);
   const selectedArea = areas.find((a) => a.id === selectedAreaId) ?? nearbyAreas[0];
+  const canSubmitSearch = !isSearching && searchInput.trim().length > 0;
 
   const areasWithDistance = useMemo(() => {
     if (!userLocation) return areas;
@@ -209,6 +212,56 @@ export function SearchParkingClient() {
     );
   }
 
+  async function handleBookNow(area: ParkingAreaWithSlots) {
+    setImportingAreaId(area.id);
+    setErrorMessage(null);
+
+    try {
+      if (area.source === "supabase") {
+        router.push(createBookingHref(area));
+        return;
+      }
+
+      const response = await fetch("/api/parking/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          externalId: area.external_id ?? area.id,
+          name: area.name,
+          description: area.description,
+          address: area.address,
+          latitude: area.latitude,
+          longitude: area.longitude,
+          totalSlots: area.total_slots || area.slots.length,
+          slots: area.slots.map((slot) => ({
+            slotNumber: slot.slot_number,
+            level: slot.level,
+            status: slot.status,
+            isAccessible: slot.is_accessible,
+            hasEvCharger: slot.has_ev_charger,
+            hourlyRate: slot.hourly_rate,
+          })),
+        }),
+      });
+      const payload = (await response.json()) as {
+        data?: ParkingAreaWithSlots;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error ?? "Unable to save this parking area for booking.");
+      }
+
+      router.push(createBookingHref(payload.data));
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Unable to prepare this parking area for booking.",
+      );
+    } finally {
+      setImportingAreaId(null);
+    }
+  }
+
   return (
     <section className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
       <div className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-2xl shadow-blue-950/10 backdrop-blur sm:p-6">
@@ -238,7 +291,8 @@ export function SearchParkingClient() {
             </label>
             <button
               type="submit"
-              disabled={isSearching || !searchInput.trim()}
+              disabled={!canSubmitSearch}
+              suppressHydrationWarning
               className="rounded-full bg-blue-600 px-6 py-3 text-sm font-black text-white shadow-xl shadow-blue-600/25 transition hover:-translate-y-0.5 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSearching ? "Searching..." : "Search"}
@@ -467,17 +521,22 @@ export function SearchParkingClient() {
                       ) : null}
                     </div>
 
-                    <Link
-                      href={createBookingHref(area)}
-                      aria-disabled={!canBook}
+                    <button
+                      type="button"
+                      onClick={() => handleBookNow(area)}
+                      disabled={!canBook || importingAreaId === area.id}
                       className={`mt-5 inline-flex w-full justify-center rounded-full px-5 py-3 text-sm font-black shadow-xl transition ${
                         canBook
                           ? "bg-blue-600 text-white shadow-blue-600/25 hover:-translate-y-0.5 hover:bg-blue-700"
-                          : "pointer-events-none bg-slate-200 text-slate-500 shadow-none"
+                          : "bg-slate-200 text-slate-500 shadow-none"
                       }`}
                     >
-                      {canBook ? "Book Now" : "No slots available"}
-                    </Link>
+                      {importingAreaId === area.id
+                        ? "Saving..."
+                        : canBook
+                          ? "Book Now"
+                          : "No slots available"}
+                    </button>
                   </article>
                 );
               })}

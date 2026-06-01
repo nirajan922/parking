@@ -5,16 +5,18 @@ import { getParkingAreaById } from "@/services/parkingService";
 import { createPrediction, listLatestPredictions } from "@/services/predictionService";
 import { requireAuthenticatedUser } from "@/services/authService";
 
-type PredictionRequestBody = {
+type NormalizedPredictionRequestBody = {
   parkingAreaId: string;
   predictionWindowStart?: string;
   predictionWindowEnd?: string;
 };
 
-type AvailabilityLevel = "high" | "medium" | "low" | "full";
+type AvailabilityLevel = "high" | "medium" | "low";
 
 type RuleBasedPredictionInput = {
   currentAvailableSlots: number;
+  currentReservedSlots: number;
+  currentOccupiedSlots: number;
   totalSlots: number;
   predictionTime: Date;
 };
@@ -36,15 +38,11 @@ function getTimeSegment(hour: number) {
     return "evening_peak";
   }
 
-  if (hour >= 19 && hour <= 22) {
-    return "evening";
+  if (hour >= 19 || hour <= 5) {
+    return "night_off_peak";
   }
 
-  if (hour >= 23 || hour <= 5) {
-    return "overnight";
-  }
-
-  return "standard";
+  return "midday";
 }
 
 function getDemandFactor(hour: number, isWeekend: boolean) {
@@ -55,11 +53,7 @@ function getDemandFactor(hour: number, isWeekend: boolean) {
       return { factor: 0.82, timeSegment };
     }
 
-    if (timeSegment === "evening") {
-      return { factor: 0.9, timeSegment };
-    }
-
-    if (timeSegment === "overnight") {
+    if (timeSegment === "night_off_peak") {
       return { factor: 1.12, timeSegment };
     }
 
@@ -74,22 +68,10 @@ function getDemandFactor(hour: number, isWeekend: boolean) {
     return { factor: 0.84, timeSegment };
   }
 
-  if (timeSegment === "standard") {
-    return { factor: 0.92, timeSegment };
-  }
-
-  if (timeSegment === "evening") {
-    return { factor: 1.03, timeSegment };
-  }
-
   return { factor: 1.15, timeSegment };
 }
 
 function getAvailabilityLevel(estimatedAvailableSlots: number, totalSlots: number): AvailabilityLevel {
-  if (estimatedAvailableSlots <= 0 || totalSlots <= 0) {
-    return "full";
-  }
-
   const availabilityRatio = estimatedAvailableSlots / totalSlots;
 
   if (availabilityRatio >= 0.5) {
@@ -128,6 +110,8 @@ function getRecommendationMessage(
 
 function calculateRuleBasedPrediction({
   currentAvailableSlots,
+  currentReservedSlots,
+  currentOccupiedSlots,
   totalSlots,
   predictionTime,
 }: RuleBasedPredictionInput) {
@@ -136,6 +120,9 @@ function calculateRuleBasedPrediction({
   const isWeekend = day === 0 || day === 6;
   const { factor, timeSegment } = getDemandFactor(hour, isWeekend);
   const utilizationRatio = totalSlots > 0 ? currentAvailableSlots / totalSlots : 0;
+  const knownStatusRatio = totalSlots > 0
+    ? (currentAvailableSlots + currentReservedSlots + currentOccupiedSlots) / totalSlots
+    : 0;
   const estimatedAvailableSlots = clamp(
     Math.round(currentAvailableSlots * factor),
     0,
@@ -144,7 +131,7 @@ function calculateRuleBasedPrediction({
   const availabilityLevel = getAvailabilityLevel(estimatedAvailableSlots, totalSlots);
   const peakPenalty = timeSegment.includes("peak") ? 0.08 : 0;
   const capacityBoost = totalSlots >= 100 ? 0.07 : totalSlots >= 25 ? 0.04 : 0;
-  const dataQualityBoost = totalSlots > 0 ? 0.08 : 0;
+  const dataQualityBoost = totalSlots > 0 ? clamp(knownStatusRatio, 0, 1) * 0.08 : 0;
   const confidenceScore = Number(
     clamp(0.72 + capacityBoost + dataQualityBoost - peakPenalty, 0.5, 0.95).toFixed(2),
   );
@@ -164,24 +151,36 @@ function calculateRuleBasedPrediction({
       timeSegment,
       demandFactor: factor,
       currentAvailabilityRatio: Number(utilizationRatio.toFixed(4)),
+      currentReservedSlots,
+      currentOccupiedSlots,
     },
   };
 }
 
-function isPredictionRequestBody(value: unknown): value is PredictionRequestBody {
+function normalizePredictionRequestBody(value: unknown): NormalizedPredictionRequestBody | null {
   if (!value || typeof value !== "object") {
-    return false;
+    return null;
   }
 
   const body = value as Record<string, unknown>;
+  const parkingAreaId = body.parkingAreaId ?? body.parking_area_id;
+  const predictionWindowStart = body.predictionWindowStart ?? body.prediction_window_start;
+  const predictionWindowEnd = body.predictionWindowEnd ?? body.prediction_window_end;
 
-  return (
-    typeof body.parkingAreaId === "string" &&
-    isUuid(body.parkingAreaId) &&
-    (body.predictionWindowStart === undefined ||
-      typeof body.predictionWindowStart === "string") &&
-    (body.predictionWindowEnd === undefined || typeof body.predictionWindowEnd === "string")
-  );
+  if (
+    typeof parkingAreaId !== "string" ||
+    !isUuid(parkingAreaId) ||
+    (predictionWindowStart !== undefined && typeof predictionWindowStart !== "string") ||
+    (predictionWindowEnd !== undefined && typeof predictionWindowEnd !== "string")
+  ) {
+    return null;
+  }
+
+  return {
+    parkingAreaId,
+    predictionWindowStart,
+    predictionWindowEnd,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -211,11 +210,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await parseJsonBody(request);
+    const body = normalizePredictionRequestBody(await parseJsonBody(request));
 
-    if (!isPredictionRequestBody(body)) {
+    if (!body) {
       return NextResponse.json(
-        { error: "parkingAreaId is required and must be a valid UUID." },
+        { error: "parking_area_id is required and must be a valid UUID." },
         { status: 400 },
       );
     }
@@ -245,6 +244,8 @@ export async function POST(request: NextRequest) {
 
     const [
       { count: availableSlots, error: availableError },
+      { count: reservedSlots, error: reservedError },
+      { count: occupiedSlots, error: occupiedError },
       { count: totalSlots, error: totalError },
     ] = await Promise.all([
       supabase
@@ -255,10 +256,20 @@ export async function POST(request: NextRequest) {
       supabase
         .from("parking_slots")
         .select("id", { count: "exact", head: true })
+        .eq("parking_area_id", body.parkingAreaId)
+        .eq("status", "reserved"),
+      supabase
+        .from("parking_slots")
+        .select("id", { count: "exact", head: true })
+        .eq("parking_area_id", body.parkingAreaId)
+        .eq("status", "occupied"),
+      supabase
+        .from("parking_slots")
+        .select("id", { count: "exact", head: true })
         .eq("parking_area_id", body.parkingAreaId),
     ]);
 
-    if (availableError || totalError) {
+    if (availableError || reservedError || occupiedError || totalError) {
       return NextResponse.json(
         { error: "Unable to calculate parking availability." },
         { status: 500 },
@@ -266,9 +277,13 @@ export async function POST(request: NextRequest) {
     }
 
     const safeAvailableSlots = availableSlots ?? 0;
+    const safeReservedSlots = reservedSlots ?? 0;
+    const safeOccupiedSlots = occupiedSlots ?? 0;
     const safeTotalSlots = totalSlots && totalSlots > 0 ? totalSlots : area.total_slots;
     const predictionResult = calculateRuleBasedPrediction({
       currentAvailableSlots: safeAvailableSlots,
+      currentReservedSlots: safeReservedSlots,
+      currentOccupiedSlots: safeOccupiedSlots,
       totalSlots: safeTotalSlots,
       predictionTime: windowStart,
     });
@@ -281,11 +296,13 @@ export async function POST(request: NextRequest) {
         confidenceScore: predictionResult.confidenceScore,
         predictionWindowStart: windowStart.toISOString(),
         predictionWindowEnd: windowEnd.toISOString(),
-        modelVersion: "rule-based-mvp-v1",
+        modelVersion: "baseline-rule-v1",
         createdBy: user.id,
         metadata: {
           source: "api_prediction_request",
           currentAvailableSlots: safeAvailableSlots,
+          currentReservedSlots: safeReservedSlots,
+          currentOccupiedSlots: safeOccupiedSlots,
           totalSlots: safeTotalSlots,
           availabilityLevel: predictionResult.availabilityLevel,
           recommendationMessage: predictionResult.recommendationMessage,
@@ -304,9 +321,13 @@ export async function POST(request: NextRequest) {
           availabilityLevel: predictionResult.availabilityLevel,
           estimatedAvailableSlots: prediction.predicted_available_slots,
           currentAvailableSlots: safeAvailableSlots,
+          currentReservedSlots: safeReservedSlots,
+          currentOccupiedSlots: safeOccupiedSlots,
           totalSlots: safeTotalSlots,
           confidenceScore: prediction.confidence_score,
           recommendationMessage: predictionResult.recommendationMessage,
+          modelVersion: prediction.model_version,
+          metadata: prediction.metadata,
           predictionWindowStart: prediction.prediction_window_start,
           predictionWindowEnd: prediction.prediction_window_end,
           savedAt: prediction.created_at,

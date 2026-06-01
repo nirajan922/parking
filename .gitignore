@@ -20,9 +20,13 @@ pnpm-debug.log*
 
 # local env files
 .env*.local
+.env
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
+.env
+.env.local
+.env.*.local

@@ -11,6 +11,15 @@ function redirectToDashboard(request: NextRequest) {
   return NextResponse.redirect(redirectUrl);
 }
 
+function redirectToLogin(request: NextRequest) {
+  const redirectUrl = request.nextUrl.clone();
+  redirectUrl.pathname = "/login";
+  redirectUrl.search = "";
+  redirectUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+
+  return NextResponse.redirect(redirectUrl);
+}
+
 export async function proxy(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -41,7 +50,15 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return response;
+    if (request.cookies.get("smartparking_demo_auth")?.value === "1") {
+      if (request.nextUrl.pathname.startsWith("/admin")) {
+        return redirectToDashboard(request);
+      }
+
+      return response;
+    }
+
+    return redirectToLogin(request);
   }
 
   if (request.nextUrl.pathname.startsWith("/admin")) {

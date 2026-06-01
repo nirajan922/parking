@@ -6,6 +6,7 @@ export const DEMO_PASSWORD = "Demo12345";
 const DEMO_USER_ID = "demo-user-00000000-0000-0000-0000-000000000001";
 const BOOKINGS_STORAGE_KEY = "smartparking_demo_bookings";
 const AUTH_STORAGE_KEY = "smartparking_demo_auth";
+const AUTH_COOKIE_KEY = "smartparking_demo_auth";
 
 export type DemoUser = {
   id: string;
@@ -30,11 +31,13 @@ export function getDemoUser(): DemoUser {
 export function setDemoSession(): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(getDemoUser()));
+  document.cookie = `${AUTH_COOKIE_KEY}=1; path=/; max-age=86400; SameSite=Lax`;
 }
 
 export function clearDemoSession(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(AUTH_STORAGE_KEY);
+  document.cookie = `${AUTH_COOKIE_KEY}=; path=/; max-age=0; SameSite=Lax`;
 }
 
 export function getDemoSession(): DemoUser | null {
@@ -63,6 +66,8 @@ export const SYDNEY_PARKING_AREAS: ParkingArea[] = [
     address: "188 Pitt St, Sydney NSW 2000",
     latitude: -33.8708,
     longitude: 151.2087,
+    source: "demo",
+    external_id: "demo-area-001",
     total_slots: 45,
     status: "open",
     created_at: now,
@@ -76,6 +81,8 @@ export const SYDNEY_PARKING_AREAS: ParkingArea[] = [
     address: "1 Alfred St, Circular Quay NSW 2000",
     latitude: -33.8614,
     longitude: 151.2114,
+    source: "demo",
+    external_id: "demo-area-002",
     total_slots: 30,
     status: "open",
     created_at: now,
@@ -89,6 +96,8 @@ export const SYDNEY_PARKING_AREAS: ParkingArea[] = [
     address: "500 Sussex St, Sydney NSW 2000",
     latitude: -33.8752,
     longitude: 151.2008,
+    source: "demo",
+    external_id: "demo-area-003",
     total_slots: 60,
     status: "open",
     created_at: now,
@@ -102,6 +111,8 @@ export const SYDNEY_PARKING_AREAS: ParkingArea[] = [
     address: "Queen Elizabeth Dr, Bondi Beach NSW 2026",
     latitude: -33.8915,
     longitude: 151.2767,
+    source: "demo",
+    external_id: "demo-area-004",
     total_slots: 25,
     status: "busy",
     created_at: now,
@@ -115,6 +126,8 @@ export const SYDNEY_PARKING_AREAS: ParkingArea[] = [
     address: "Victor St, Chatswood NSW 2067",
     latitude: -33.7969,
     longitude: 151.1811,
+    source: "demo",
+    external_id: "demo-area-005",
     total_slots: 50,
     status: "open",
     created_at: now,
@@ -128,6 +141,8 @@ export const SYDNEY_PARKING_AREAS: ParkingArea[] = [
     address: "Smith St, Parramatta NSW 2150",
     latitude: -33.8151,
     longitude: 151.0011,
+    source: "demo",
+    external_id: "demo-area-006",
     total_slots: 40,
     status: "open",
     created_at: now,

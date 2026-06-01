@@ -159,6 +159,8 @@ export async function searchParkingNearby(
       address,
       latitude: elLat,
       longitude: elLon,
+      source: "openstreetmap",
+      external_id: areaId,
       total_slots: capacity,
       status: "open",
       created_at: now,

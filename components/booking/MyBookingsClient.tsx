@@ -36,6 +36,9 @@ export function MyBookingsClient() {
   const [areas, setAreas] = useState<ParkingArea[]>([]);
   const [slots, setSlots] = useState<ParkingSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isDemo = getDemoSession() !== null;
 
@@ -84,6 +87,39 @@ export function MyBookingsClient() {
 
   const areasById = new Map(areas.map((a) => [a.id, a]));
   const slotsById = new Map(slots.map((s) => [s.id, s]));
+
+  async function handleCancelBooking(bookingId: string) {
+    if (isDemo) {
+      setErrorMessage("Cancellation is available for Supabase bookings. Demo bookings are local evidence only.");
+      return;
+    }
+
+    setPendingCancelId(bookingId);
+    setMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      const payload = (await res.json()) as { data?: Booking; error?: string };
+
+      if (!res.ok || !payload.data) {
+        throw new Error(payload.error ?? "Unable to cancel booking.");
+      }
+
+      setBookings((current) =>
+        current.map((booking) => (booking.id === bookingId ? payload.data! : booking)),
+      );
+      setMessage("Booking cancelled and slot released.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to cancel booking.");
+    } finally {
+      setPendingCancelId(null);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.16),transparent_32rem),linear-gradient(135deg,#f8fbff_0%,#eef6ff_48%,#ffffff_100%)]">
@@ -140,6 +176,16 @@ export function MyBookingsClient() {
       </section>
 
       <section className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
+        {message ? (
+          <div className="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+            {message}
+          </div>
+        ) : null}
+        {errorMessage ? (
+          <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {errorMessage}
+          </div>
+        ) : null}
         {isLoading ? (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => (
@@ -220,6 +266,16 @@ export function MyBookingsClient() {
                       </span>
                     </div>
                   </div>
+                  {["pending", "confirmed"].includes(booking.status) ? (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelBooking(booking.id)}
+                      disabled={pendingCancelId === booking.id}
+                      className="mt-5 inline-flex w-full justify-center rounded-full border border-red-100 bg-white px-4 py-2.5 text-sm font-black text-red-600 transition hover:-translate-y-0.5 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {pendingCancelId === booking.id ? "Cancelling..." : "Cancel Booking"}
+                    </button>
+                  ) : null}
                 </article>
               );
             })}

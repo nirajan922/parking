@@ -89,6 +89,35 @@ function calculateBookingPrice(startTime: string, endTime: string, hourlyRate: n
   return Number((durationInHours * hourlyRate).toFixed(2));
 }
 
+async function hasOverlappingActiveBooking(
+  client: SmartParkingClient,
+  parkingSlotId: string,
+  startTime: string,
+  endTime: string,
+  excludedBookingId?: string,
+) {
+  let query = client
+    .from("bookings")
+    .select("id")
+    .eq("parking_slot_id", parkingSlotId)
+    .in("status", ["pending", "confirmed"])
+    .lt("start_time", new Date(endTime).toISOString())
+    .gt("end_time", new Date(startTime).toISOString())
+    .limit(1);
+
+  if (excludedBookingId) {
+    query = query.neq("id", excludedBookingId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throwServiceError("Unable to check booking conflicts.", error);
+  }
+
+  return Boolean(data?.length);
+}
+
 function throwServiceError(message: string, cause: unknown): never {
   throw new Error(message, { cause });
 }
@@ -131,6 +160,18 @@ export async function createParkingBookingForUser(
 
   const activeClient = getClient(client);
   const vehiclePlate = normalizeVehiclePlate(input.vehiclePlate);
+
+  if (
+    await hasOverlappingActiveBooking(
+      activeClient,
+      input.parkingSlotId,
+      input.startTime,
+      input.endTime,
+    )
+  ) {
+    throw new Error("Parking slot is already booked for the selected time window.");
+  }
+
   const { data: reservedSlot, error: reserveError } = await activeClient
     .from("parking_slots")
     .update({
@@ -139,7 +180,7 @@ export async function createParkingBookingForUser(
     })
     .eq("id", input.parkingSlotId)
     .eq("parking_area_id", input.parkingAreaId)
-    .eq("status", "available")
+    .in("status", ["available", "reserved"])
     .select("id, parking_area_id, hourly_rate")
     .maybeSingle();
 
@@ -251,6 +292,25 @@ export async function cancelParkingBooking(
 
   if (error) {
     throwServiceError("Unable to cancel parking booking.", error);
+  }
+
+  const stillBooked = await hasOverlappingActiveBooking(
+    activeClient,
+    data.parking_slot_id,
+    data.start_time,
+    data.end_time,
+    data.id,
+  );
+
+  if (!stillBooked) {
+    await activeClient
+      .from("parking_slots")
+      .update({
+        status: "available",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.parking_slot_id)
+      .eq("status", "reserved");
   }
 
   return data;

@@ -22,10 +22,38 @@ export default async function AdminPage() {
     redirect("/login?next=/admin");
   }
 
-  const [areas, slots, bookings] = await Promise.all([
+  const [
+    areas,
+    slots,
+    bookings,
+    { count: totalUsers },
+    { count: activeBookings },
+    { count: cancelledBookings },
+    { data: predictions },
+    { data: contactMessages },
+  ] = await Promise.all([
     listParkingAreas({ client: supabase, limit: 250 }),
     listParkingSlots({ client: supabase, limit: 500 }),
     listAdminBookingOverview({ client: supabase, limit: 50 }),
+    supabase.from("profiles").select("id", { count: "exact", head: true }),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["pending", "confirmed"]),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "cancelled"),
+    supabase
+      .from("predictions")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(10),
+    supabase
+      .from("contact_messages")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   return (
@@ -66,6 +94,13 @@ export default async function AdminPage() {
             initialAreas={areas}
             initialSlots={slots}
             initialBookings={bookings}
+            initialPredictions={predictions ?? []}
+            initialContactMessages={contactMessages ?? []}
+            summary={{
+              totalUsers: totalUsers ?? 0,
+              activeBookings: activeBookings ?? 0,
+              cancelledBookings: cancelledBookings ?? 0,
+            }}
           />
         </div>
       </div>
