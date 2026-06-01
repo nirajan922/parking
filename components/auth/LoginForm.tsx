@@ -38,7 +38,7 @@ export function LoginForm() {
 
   useEffect(() => {
     if (getDemoSession()) {
-      router.replace("/dashboard");
+      router.replace(redirectPath);
       return;
     }
 
@@ -51,14 +51,14 @@ export function LoginForm() {
         supabase.auth.getUser().then(({ data: { user } }) => {
           if (user) {
             console.log("[SmartParking:login] Existing session found, redirecting...");
-            router.replace("/dashboard");
+            router.replace(redirectPath);
           } else {
             console.log("[SmartParking:login] No existing session.");
           }
         });
       });
     }
-  }, [router, supabaseConnected]);
+  }, [redirectPath, router, supabaseConnected]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
